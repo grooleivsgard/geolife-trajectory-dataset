@@ -67,8 +67,9 @@ def create_tables(database: Database, debug=False):
 
 def insert_batch(database: Database, batch: list, table_name):
     df = pd.DataFrame(batch)
-    df = df.drop(columns='path')
-    df['has_labels'] = df['has_labels'].astype(int)
+    if 'path' in batch[0].keys():
+        df = df.drop(columns='path')
+        df['has_labels'] = df['has_labels'].astype(int)
     data = [tuple(row) for row in df.values]
     columns = ', '.join(df.columns)
     placeholders = ', '.join(['%s'] * len(df.columns))
