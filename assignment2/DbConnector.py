@@ -2,6 +2,7 @@ import mysql.connector as mysql
 import os
 from dotenv import load_dotenv
 
+load_dotenv()
 
 class DbConnector:
     """
@@ -17,10 +18,10 @@ class DbConnector:
     """
 
     def __init__(self,
-                 HOST="tdt4225-34.idi.ntnu.no",
-                 DATABASE="geolife",
-                 USER=os.getenv("USER"),
-                 PASSWORD=os.getenv("PASSWORD")):
+                 HOST='tdt4225-34.idi.ntnu.no',
+                 DATABASE='geolife',
+                 USER=os.getenv('USER'),
+                 PASSWORD=os.getenv('PASSWORD')):
         # Connect to the database
         try:
             self.db_connection = mysql.connect(host=HOST, database=DATABASE, user=USER, password=PASSWORD, port=3306)
