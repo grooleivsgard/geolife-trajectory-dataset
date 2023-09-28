@@ -1,5 +1,7 @@
 from Database import Database
-
+from dataset import process_users, read_file_to_list
+import pandas as pd
+import mysql.connector
 
 # Task1
 # Write a Python database that does the following:
@@ -61,9 +63,28 @@ def create_tables(database: Database, debug=False):
     database.create_table(trackpoint['name'], trackpoint['attributes'], trackpoint['primary'], trackpoint['foreign'],
                           debug=debug)
 
+def insert_batch(database: Database, batch: list, table_name):
+    df = pd.DataFrame(batch)
+    df = df.drop(columns='path')
+    df['has_labels'] = df['has_labels'].astype(int)
+    data = [tuple(row) for row in df.values]
+    columns = ', '.join(df.columns)
+    placeholders = ', '.join(['%s'] * len(df.columns))
+    query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+    try:
+        database.cursor.executemany(query, data)
+        database.db_connection.commit()
+    except mysql.connector.Error as e:
+        print(f"An error occurred: {e}")
+    return
+
+data_path = '../dataset/dataset/Data'
+labeled_ids = read_file_to_list('../dataset/dataset/labeled_ids.txt')
 
 database = open_connection()
 create_tables(database, debug=True)
+users = process_users(data_path, labeled_ids)
+insert_batch(database=database, batch=users, table_name='User')
 close_connection(database)
 
 # 3. Inserts the data from the Geolife dataset into your MySQL database

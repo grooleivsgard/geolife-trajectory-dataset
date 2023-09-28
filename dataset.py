@@ -26,9 +26,9 @@ def read_file_to_list(file_path):
 
 
 def retrieve_user(user_dir: os.DirEntry[str], labled_ID: list):
-    labels = 'false'
+    labels = False
     if user_dir.name in labled_ID:
-        labels = "true"
+        labels = True
 
     return {
         "id": user_dir.name,
@@ -84,15 +84,16 @@ def process_activities(user_rows):
                     retrive_activity(trackpoints, activity_name=activity.name,user_row=user_row)
                     exit()
 
-def retrieve_trackpoints(trackpoints:pd.DataFrame, activity):
-    trackpoint = {'activity_id':
-                  ', 'lat DOUBLE', 'lon DOUBLE',
-                       'altitude INT', 'date_days DOUBLE', 'date_time DATETIME'}
-    for i, rows in trackpoints.iterrows():
+# def retrieve_trackpoints(trackpoints:pd.DataFrame, activity):
+#     trackpoint = {'activity_id':
+#                   ', 'lat DOUBLE', 'lon DOUBLE',
+#                        'altitude INT', 'date_days DOUBLE', 'date_time DATETIME'}
+#     for i, rows in trackpoints.iterrows():
 
 
 
-data_path = './dataset/dataset/Data'
-labeled_ids = read_file_to_list('./dataset/dataset/labeled_ids.txt')
+data_path = '../dataset/dataset/Data'
+labeled_ids = read_file_to_list('../dataset/dataset/labeled_ids.txt')
 
-process_users(data_path, labeled_ids)
+list = process_users(data_path, labeled_ids)
+
