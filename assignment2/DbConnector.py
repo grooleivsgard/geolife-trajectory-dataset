@@ -1,4 +1,6 @@
 import mysql.connector as mysql
+import os
+from dotenv import load_dotenv
 
 
 class DbConnector:
@@ -15,10 +17,10 @@ class DbConnector:
     """
 
     def __init__(self,
-                 HOST="tdt4225-xx.idi.ntnu.no",
-                 DATABASE="DATABASE_NAME",
-                 USER="TEST_USER",
-                 PASSWORD="test123"):
+                 HOST="tdt4225-34.idi.ntnu.no",
+                 DATABASE="geolife",
+                 USER=os.getenv("USER"),
+                 PASSWORD=os.getenv("PASSWORD")):
         # Connect to the database
         try:
             self.db_connection = mysql.connect(host=HOST, database=DATABASE, user=USER, password=PASSWORD, port=3306)
@@ -42,3 +44,7 @@ class DbConnector:
         self.db_connection.close()
         print("\n-----------------------------------------------")
         print("Connection to %s is closed" % self.db_connection.get_server_info())
+
+
+dbc = DbConnector()
+
