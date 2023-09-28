@@ -1,7 +1,8 @@
 from Database import Database
-from dataset import process_users, read_file_to_list
 import pandas as pd
 import mysql.connector
+from dataset import process_users, preprocess_activities, process_activity, process_trackpoints, read_file_to_list
+
 
 # Task1
 # Write a Python database that does the following:
@@ -63,6 +64,7 @@ def create_tables(database: Database, debug=False):
     database.create_table(trackpoint['name'], trackpoint['attributes'], trackpoint['primary'], trackpoint['foreign'],
                           debug=debug)
 
+
 def insert_batch(database: Database, batch: list, table_name):
     df = pd.DataFrame(batch)
     df = df.drop(columns='path')
@@ -78,14 +80,41 @@ def insert_batch(database: Database, batch: list, table_name):
         print(f"An error occurred: {e}")
     return
 
-data_path = '../dataset/dataset/Data'
-labeled_ids = read_file_to_list('../dataset/dataset/labeled_ids.txt')
 
-database = open_connection()
-create_tables(database, debug=True)
-users = process_users(data_path, labeled_ids)
-insert_batch(database=database, batch=users, table_name='User')
-close_connection(database)
+def insert_data(database: Database, data_path, labeled_ids):
+    users_rows = process_users(path=data_path, labeled_ids=labeled_ids)
+    insert_batch(database=database, batch=users_rows, table_name='User')
+
+    for user_row in users_rows:
+        activity_rows = preprocess_activities(user_rows=users_rows)
+
+        for activity_row in activity_rows:
+            activity, trackpoints_df = process_activity(user_row, activity_row=activity_row)
+            if not activity:
+                # Reduce overhead by skipping redundant processing of activities which will not be added anyway.
+                continue
+
+            # insert activity (single)
+            # Retrieve activity_ID
+            activity_id = ""
+            trackpoints = process_trackpoints(activity_id, trackpoints_df)
+            # Insert trackpoints (batch)
+
+
+def execute():
+    data_path = './dataset/dataset/Data'
+    labeled_ids = read_file_to_list('./dataset/dataset/labeled_ids.txt')
+    database = open_connection()
+
+    create_tables(database, debug=True)
+    insert_data(database, data_path, labeled_ids)
+
+
+    users = process_users(data_path, labeled_ids)
+
+    close_connection(database)
+
+    close_connection(database)
 
 # 3. Inserts the data from the Geolife dataset into your MySQL database
 

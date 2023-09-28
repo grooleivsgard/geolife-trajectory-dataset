@@ -1,7 +1,6 @@
 import pandas as pd
 import os
 
-columns = ['lat', 'lon', 'dep1', 'alt', 'date', 'date_str', 'time_str']
 
 def read_file_to_list(file_path):
     """
@@ -49,51 +48,56 @@ def process_users(path, labeled_ids):
     return user_rows
 
 
-def retrieve_activity(activity_dir: pd.DataFrame, activity_name,  user_row):
-    activity = {
-        "activity_id": user_row["id"] + "-" + activity_name,
-        "user_id": user_row["id"],
-        "start_time": activity_dir['date_str'].iloc[0] + " " + activity_dir['time_str'].iloc[0],
-        "end_time": activity_dir['date_str'].iloc[-1] + " " + activity_dir['time_str'].iloc[-1],
-    }
-
-    # Check for transportation mode
-    if user_row['has_labels'] == "true":
-        transportations = pd.read_table(user_row['path'] + "/labels.txt")
-        for index in transportations.index:
-            activity['transportation_mode'] = transportations['Transportation Mode'].iloc[index] \
-                if (activity['start_time'] == transportations['Start Time'].iloc[index]
-                    and activity['end_time'] == transportations['End Time'].iloc[index]) \
-                else "null"
-    print(activity)
-
-
-def process_activities(user_rows):
+def preprocess_activities(user_rows):
+    activity_rows = []
     for user_row in user_rows:
-
         with os.scandir(user_row['path'] + "/Trajectory") as activities:
             for activity in activities:
                 if activity.is_file():
-
-                    trackpoints = pd.read_table(activity.path, skiprows=7, names=columns, delimiter=',')
-
-                    # Skip if larger than 2500 trackpoints
-                    if trackpoints.shape[0] > 2500:
-                        continue
-
-                    retrive_activity(trackpoints, activity_name=activity.name,user_row=user_row)
-                    exit()
-
-# def retrieve_trackpoints(trackpoints:pd.DataFrame, activity):
-#     trackpoint = {'activity_id':
-#                   ', 'lat DOUBLE', 'lon DOUBLE',
-#                        'altitude INT', 'date_days DOUBLE', 'date_time DATETIME'}
-#     for i, rows in trackpoints.iterrows():
+                    activity = {
+                        "user_id": user_row["id"],
+                        "path": activity.path
+                    }
+                    activity_rows.append(activity)
+    return activity_rows
 
 
+def process_activity(user_row, activity_row):
+    columns = ['lat', 'lon', 'dep1', 'alt', 'date', 'date_str', 'time_str']
+    trackpoints_df = pd.read_table(activity_row['path'], skiprows=7, names=columns, delimiter=',')
 
-data_path = '../dataset/dataset/Data'
-labeled_ids = read_file_to_list('../dataset/dataset/labeled_ids.txt')
+    if trackpoints_df.shape[0] > 2500:  # check if rows not columns
+        return None, None
 
-list = process_users(data_path, labeled_ids)
+    # Build activity
+    activity = {
+        'user_id': activity_row['user_id'],
+        'transportation_mode': 'null',
+        'start_time': trackpoints_df['date_str'].iloc[0] + " " + trackpoints_df['time_str'].iloc[0],
+        'end_time': trackpoints_df['date_str'].iloc[-1] + " " + trackpoints_df['time_str'].iloc[-1],
+    }
 
+    # Add transport type if matching
+    if user_row['has_labels']:
+        transportations = pd.read_table(user_row['path'] + "/labels.txt")
+        for index in transportations.index:
+            if (activity['start_time'] == transportations['Start Time'].iloc[index]
+                    and activity['end_time'] == transportations['End Time'].iloc[index]):
+                activity['transportation_mode'] = transportations['Transportation Mode'].iloc[index]
+                break
+
+    return activity, trackpoints_df
+
+
+def process_trackpoints(activity_id, trackpoints_df):
+    trackpoints = []
+    for _, trackpoint in trackpoints_df.iterrows():
+        trackpoints.append({
+            'activity_id': activity_id,
+            'lat': trackpoint['lat'],
+            'lon': trackpoint['lon'],
+            'altitude': trackpoint['alt'],
+            'date_days': trackpoint['date'],
+            'date_time': trackpoint['date_str'] + " " + trackpoint['time_time']
+        })
+    return trackpoints
