@@ -5,15 +5,13 @@ from dataset import process_users, preprocess_activities, process_activity, proc
 
 
 # Task1
-# Write a Python database that does the following:
-# 1. Connects to the MySQL server on your Ubuntu virtual machine.
 def open_connection() -> Database:
     database = None
     try:
         database = Database()
     except Exception as e:
         print("ERROR: Failed to use database:", e)
-    return database;
+    return database
 
 
 def close_connection(database: Database):
@@ -38,7 +36,7 @@ def create_tables(database: Database, debug=False):
     activity = {
         'name': 'Activity',
         'attributes': ['id INT NOT NULL AUTO_INCREMENT', 'user_id VARCHAR(3) NOT NULL',
-                       'transportation_mode VARCHAR(30)', 'start_time_date DATETIME', 'end_date_time DATETIME'],
+                       'transportation_mode VARCHAR(30)', 'start_date_time DATETIME', 'end_date_time DATETIME'],
         'primary': 'id',
         'foreign': {
             'key': 'user_id',
@@ -65,21 +63,53 @@ def create_tables(database: Database, debug=False):
                           debug=debug)
 
 
-def insert_batch(database: Database, batch: list, table_name):
-    df = pd.DataFrame(batch)
-    if 'path' in batch[0].keys():
-        df = df.drop(columns='path')
-        df['has_labels'] = df['has_labels'].astype(int)
-    data = [tuple(row) for row in df.values]
-    columns = ', '.join(df.columns)
-    placeholders = ', '.join(['%s'] * len(df.columns))
-    query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+def insert_batch(database: Database, table_name, batch: list):
     try:
+        database.db_connection.start_transaction()
+
+        df = pd.DataFrame(batch)
+        if 'path' in batch[0].keys():
+            df = df.drop(columns='path')
+            df['has_labels'] = df['has_labels'].astype(int)
+        data = [tuple(row) for row in df.values]
+        columns = ', '.join(df.columns)
+        placeholders = ', '.join(['%s'] * len(df.columns))
+        query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+
         database.cursor.executemany(query, data)
         database.db_connection.commit()
     except mysql.connector.Error as e:
         print(f"An error occurred: {e}")
-    return
+        database.db_connection.rollback()
+
+
+def insert_row_and_get_id(database: Database, table_name, row: dict):
+    # If 'path' is in the keys, remove it
+    if 'path' in row.keys():
+        del row['path']
+
+    # Prepare the data and query for insertion
+    data = tuple(row.values())
+    columns = ', '.join(row.keys())
+    placeholders = ', '.join(['%s'] * len(row.keys()))
+    query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+
+    try:
+        # Start a transaction to insert and retrieve its ID
+        database.db_connection.start_transaction()
+        database.cursor.execute(query, data)
+        last_inserted_id = database.cursor.lastrowid
+        database.db_connection.commit()
+
+        return last_inserted_id
+    except mysql.connector.Error as e:
+        print(f"An error occurred: {e}")
+        database.db_connection.rollback()  # Rollback the transaction in case of an error
+        return None
+
+
+# Usage
+# activity_id = insert_row_and_get_id(database, 'Activity', activity)
 
 
 def insert_data(database: Database, data_path, labeled_ids):
@@ -95,11 +125,13 @@ def insert_data(database: Database, data_path, labeled_ids):
                 # Reduce overhead by skipping redundant processing of activities which will not be added anyway.
                 continue
 
-            # insert activity (single)
-            # Retrieve activity_ID
-            activity_id = ""
+            # Insert activity and retrieve its ID
+            activity_id = insert_row_and_get_id(database, 'Activity', activity)
+            if activity_id is None:
+                exit(1337)
+
             trackpoints = process_trackpoints(activity_id, trackpoints_df)
-            # Insert trackpoints (batch)
+            insert_batch(database, 'TrackPoint', trackpoints)
 
 
 def execute():
@@ -110,13 +142,9 @@ def execute():
     create_tables(database, debug=True)
     insert_data(database, data_path, labeled_ids)
 
-
-    users = process_users(data_path, labeled_ids)
-
     close_connection(database)
 
-    close_connection(database)
 
-# 3. Inserts the data from the Geolife dataset into your MySQL database
+execute()
 
-# Execution
+

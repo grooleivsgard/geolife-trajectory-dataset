@@ -73,8 +73,8 @@ def process_activity(user_row, activity_row):
     activity = {
         'user_id': activity_row['user_id'],
         'transportation_mode': 'null',
-        'start_time': trackpoints_df['date_str'].iloc[0] + " " + trackpoints_df['time_str'].iloc[0],
-        'end_time': trackpoints_df['date_str'].iloc[-1] + " " + trackpoints_df['time_str'].iloc[-1],
+        'start_date_time': trackpoints_df['date_str'].iloc[0] + " " + trackpoints_df['time_str'].iloc[0],
+        'end_date_time': trackpoints_df['date_str'].iloc[-1] + " " + trackpoints_df['time_str'].iloc[-1],
     }
 
     # Add transport type if matching
@@ -98,6 +98,6 @@ def process_trackpoints(activity_id, trackpoints_df):
             'lon': trackpoint['lon'],
             'altitude': trackpoint['alt'],
             'date_days': trackpoint['date'],
-            'date_time': trackpoint['date_str'] + " " + trackpoint['time_time']
+            'date_time': trackpoint['date_str'] + " " + trackpoint['time_str']
         })
     return trackpoints
