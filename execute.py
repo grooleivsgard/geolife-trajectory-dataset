@@ -1,3 +1,5 @@
+import time
+
 from Database import Database
 import pandas as pd
 import mysql.connector
@@ -84,7 +86,6 @@ def insert_batch(database: Database, table_name, batch: list):
 
 
 def insert_row_and_get_id(database: Database, table_name, row: dict):
-    # If 'path' is in the keys, remove it
     if 'path' in row.keys():
         del row['path']
 
@@ -108,18 +109,16 @@ def insert_row_and_get_id(database: Database, table_name, row: dict):
         return None
 
 
-# Usage
-# activity_id = insert_row_and_get_id(database, 'Activity', activity)
-
-
 def insert_data(database: Database, data_path, labeled_ids):
     users_rows = process_users(path=data_path, labeled_ids=labeled_ids)
     insert_batch(database=database, batch=users_rows, table_name='User')
+    print(f"Inserted {len(users_rows)} users into User")
 
     for user_row in users_rows:
         activity_rows = preprocess_activities(user_rows=users_rows)
+        num_activities = len(activity_rows)
 
-        for activity_row in activity_rows:
+        for i, activity_row in enumerate(activity_rows):
             activity, trackpoints_df = process_activity(user_row, activity_row=activity_row)
             if not activity:
                 # Reduce overhead by skipping redundant processing of activities which will not be added anyway.
@@ -130,11 +129,15 @@ def insert_data(database: Database, data_path, labeled_ids):
             if activity_id is None:
                 exit(1337)
 
+            if (i + 1) % 100 == 0:
+                print(f"Inserted activity {activity_id} / {num_activities}")
+
             trackpoints = process_trackpoints(activity_id, trackpoints_df)
             insert_batch(database, 'TrackPoint', trackpoints)
 
 
 def execute():
+    start_time = time.time()
     data_path = './dataset/dataset/Data'
     labeled_ids = read_file_to_list('./dataset/dataset/labeled_ids.txt')
     database = open_connection()
@@ -143,8 +146,11 @@ def execute():
     insert_data(database, data_path, labeled_ids)
 
     close_connection(database)
+    elapsed = time.time() - start_time
+
+    minutes = elapsed / 60
+    seconds = elapsed % 60
+    print(f"Time: {minutes} minutes and {seconds} seconds.")
 
 
 execute()
-
-
