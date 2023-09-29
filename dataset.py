@@ -49,7 +49,7 @@ def preprocess_activities(user_row):
         for activity in activities:
             if activity.is_file():
                 activity = {
-                    "activity_id": int(user_row["id"] + activity.name[:-4]),
+                    "id": int(user_row["id"] + activity.name[:-4]),
                     "user_id": user_row["id"],
                     "meta": {
                         "name": activity.name,

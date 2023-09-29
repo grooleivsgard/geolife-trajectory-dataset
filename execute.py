@@ -139,7 +139,7 @@ def insert_data(database: Database, data_path, labeled_ids, tp_batch_threshold=1
             activity_buffer.append(activity)
 
             for _, trackpoint_row in trackpoints_df.iterrows():
-                trackpoint = process_trackpoint(activity['activity_id'], trackpoint_row)
+                trackpoint = process_trackpoint(activity['id'], trackpoint_row)
                 trackpoint_buffer.append(trackpoint)
 
             if len(trackpoint_buffer) > tp_batch_threshold:
@@ -162,8 +162,8 @@ def insert_data(database: Database, data_path, labeled_ids, tp_batch_threshold=1
 
 def time_elapsed_str(start_time):
     elapsed = time.time() - start_time
-    minutes = int(elapsed / 60)
-    seconds = int(elapsed % 60)
+    minutes = round(elapsed / 60, 0)
+    seconds = round(elapsed % 60, 0)
     return f'{minutes} minutes and {seconds} seconds.'
 
 
