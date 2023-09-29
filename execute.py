@@ -1,9 +1,11 @@
 import time
+import copy
+from queue import Queue
 
 from Database import Database
 import pandas as pd
 import mysql.connector
-from dataset import process_users, preprocess_activities, process_activity, process_trackpoints, read_file_to_list
+from dataset import process_users, preprocess_activities, process_activity, process_trackpoint, read_file_to_list
 
 
 # Task1
@@ -37,7 +39,7 @@ def create_tables(database: Database, debug=False):
 
     activity = {
         'name': 'Activity',
-        'attributes': ['id INT NOT NULL AUTO_INCREMENT', 'user_id VARCHAR(3) NOT NULL',
+        'attributes': ['id INT UNSIGNED NOT NULL', 'user_id VARCHAR(3) NOT NULL',
                        'transportation_mode VARCHAR(30)', 'start_date_time DATETIME', 'end_date_time DATETIME'],
         'primary': 'id',
         'foreign': {
@@ -48,7 +50,8 @@ def create_tables(database: Database, debug=False):
 
     trackpoint = {
         'name': 'TrackPoint',
-        'attributes': ['id INT NOT NULL AUTO_INCREMENT', 'activity_id INT NOT NULL', 'lat DOUBLE', 'lon DOUBLE',
+        'attributes': ['id INT UNSIGNED NOT NULL AUTO_INCREMENT', 'activity_id INT UNSIGNED NOT NULL', 'lat DOUBLE',
+                       'lon DOUBLE',
                        'altitude INT', 'date_days DOUBLE', 'date_time DATETIME'],
         'primary': "id",
         'foreign': {
@@ -68,11 +71,13 @@ def create_tables(database: Database, debug=False):
 def insert_batch(database: Database, table_name, batch: list):
     try:
         database.db_connection.start_transaction()
+        for row in batch:
+            del row['meta']
 
         df = pd.DataFrame(batch)
-        if 'path' in batch[0].keys():
-            df = df.drop(columns='path')
-            df['has_labels'] = df['has_labels'].astype(int)
+        if 'meta' in batch[0].keys():
+            df = df.drop(columns='meta')
+
         data = [tuple(row) for row in df.values]
         columns = ', '.join(df.columns)
         placeholders = ', '.join(['%s'] * len(df.columns))
@@ -86,8 +91,11 @@ def insert_batch(database: Database, table_name, batch: list):
 
 
 def insert_row_and_get_id(database: Database, table_name, row: dict):
-    if 'path' in row.keys():
-        del row['path']
+    # Preprocess for insertion
+    if 'meta' in row.keys():
+        del row['meta']
+        if 'has_labels' in row:
+            row['has_labels'] = int(row['has_labels'])
 
     # Prepare the data and query for insertion
     data = tuple(row.values())
@@ -109,37 +117,46 @@ def insert_row_and_get_id(database: Database, table_name, row: dict):
         return None
 
 
-def insert_data(database: Database, data_path, labeled_ids):
+def insert_data(database: Database, data_path, labeled_ids, tp_batch_threshold=10e5):
     start_time = time.time()
     users_rows = process_users(path=data_path, labeled_ids=labeled_ids)
+    insert_batch(database=database, batch=copy.deepcopy(users_rows), table_name='User')
     num_users = len(users_rows)
-    insert_batch(database=database, batch=users_rows, table_name='User')
-    print(f"Inserted {num_users} users into User")
+    print(f"Inserted {num_users} users into User\n")
+
+    activity_buffer = []
+    trackpoint_buffer = []
 
     for i, user_row in enumerate(users_rows):
         activity_rows = preprocess_activities(user_row=user_row)
-        num_activities = len(activity_rows)
-        skipped_activities = 0
 
         for activity_row in activity_rows:
             activity, trackpoints_df = process_activity(user_row, activity_row=activity_row)
-            if not activity:
-                # Reduce overhead by skipping redundant processing of activities and trackpoints which will not be
-                # added anyway.
-                skipped_activities += 1
+            if not activity:  # means number of trackpoints > 2500
                 continue
 
-            # Insert activity and retrieve its ID
-            activity_id = insert_row_and_get_id(database, 'Activity', activity)
-            if activity_id is None:
-                exit(1337)
+            activity_buffer.append(activity)
 
-            trackpoints = process_trackpoints(activity_id, trackpoints_df)
-            insert_batch(database, 'TrackPoint', trackpoints)
+            for _, trackpoint_row in trackpoints_df.iterrows():
+                trackpoint = process_trackpoint(activity['activity_id'], trackpoint_row)
+                trackpoint_buffer.append(trackpoint)
 
-        print(f'Completed insertion of user {user_row["id"]} ({i} / {num_users}):\n '
-              f'\tInserted activities: {num_activities - skipped_activities}\n'
-              f'Time elapsed: {time_elapsed_str(start_time)}')
+            if len(trackpoint_buffer) > tp_batch_threshold:
+                # Insert activities
+                num_activities = len(activity_buffer)
+                insert_batch(database=database, table_name='Activity', batch=list(activity_buffer))
+                activity_buffer.clear()
+
+                # Insert trackpoints
+                num_trackpoints = len(trackpoint_buffer)
+                insert_batch(database=database, table_name='Trackpoint', batch=list(trackpoint_buffer))
+                trackpoint_buffer.clear()
+
+                print(f'\tInserted approx: {num_activities} activities and {num_trackpoints} trackpoints\n')
+
+        print(f'Completed insertion of user {user_row["id"]} ({i} / {num_users})\n'
+              f'Number of trackpoints queued: {len(trackpoint_buffer)}'
+              f'Time elapsed: {time_elapsed_str(start_time)}\n')
 
 
 def time_elapsed_str(start_time):
@@ -155,9 +172,10 @@ def execute():
     database = open_connection()
 
     create_tables(database, debug=False)
-    insert_data(database, data_path, labeled_ids)
+    insert_data(database, data_path, labeled_ids, tp_batch_threshold=10e5)
 
     close_connection(database)
+
 
 # Execution
 execute()

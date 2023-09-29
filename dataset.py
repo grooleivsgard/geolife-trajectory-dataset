@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+from queue import Queue
 
 
 def read_file_to_list(file_path):
@@ -24,24 +25,18 @@ def read_file_to_list(file_path):
         return None
 
 
-def retrieve_user(user_dir: os.DirEntry[str], labled_ID: list):
-    labels = False
-    if user_dir.name in labled_ID:
-        labels = True
-
-    return {
-        "id": user_dir.name,
-        "has_labels": labels,
-        "path": user_dir.path
-    }
-
-
 def process_users(path, labeled_ids):
     user_rows = []
     with os.scandir(path) as users:
         for user in users:
             if user.is_dir():
-                user_row = retrieve_user(user, labeled_ids)
+                user_row = {
+                    "id": user.name,
+                    "has_labels": True if user.name in labeled_ids else False,
+                    "meta": {
+                        "path": user.path
+                    }
+                }
                 user_rows.append(user_row)
 
     # Insert user
@@ -50,12 +45,16 @@ def process_users(path, labeled_ids):
 
 def preprocess_activities(user_row):
     activity_rows = []
-    with os.scandir(user_row['path'] + "/Trajectory") as activities:
+    with os.scandir(user_row['meta']['path'] + "/Trajectory") as activities:
         for activity in activities:
             if activity.is_file():
                 activity = {
+                    "activity_id": int(user_row["id"] + activity.name[:-4]),
                     "user_id": user_row["id"],
-                    "path": activity.path
+                    "meta": {
+                        "name": activity.name,
+                        "path": activity.path
+                    }
                 }
                 activity_rows.append(activity)
     return activity_rows
@@ -63,38 +62,32 @@ def preprocess_activities(user_row):
 
 def process_activity(user_row, activity_row):
     columns = ['lat', 'lon', 'dep1', 'alt', 'date', 'date_str', 'time_str']
-    trackpoints_df = pd.read_table(activity_row['path'], skiprows=7, names=columns, delimiter=',')
+    trackpoints_df = pd.read_table(activity_row['meta']['path'], skiprows=7, names=columns, delimiter=',')
 
     if trackpoints_df.shape[0] > 2500:  # check if rows not columns
         return None, None
 
-    # Build activity
-    activity = {
-        'user_id': activity_row['user_id'],
-        'transportation_mode': None,
-        'start_date_time': trackpoints_df['date_str'].iloc[0] + " " + trackpoints_df['time_str'].iloc[0],
-        'end_date_time': trackpoints_df['date_str'].iloc[-1] + " " + trackpoints_df['time_str'].iloc[-1],
-    }
+    # Expand activity
+    activity_row['start_date_time'] = trackpoints_df['date_str'].iloc[0] + " " + trackpoints_df['time_str'].iloc[0]
+    activity_row['end_date_time'] = trackpoints_df['date_str'].iloc[-1] + " " + trackpoints_df['time_str'].iloc[-1]
 
     # Add transport type if matching
     if user_row['has_labels']:
-        transportations = pd.read_table(user_row['path'] + "/labels.txt")
-        matching_transport = transportations.query("`Start Time` == @activity['start_date_time'] and `End Time` == @activity['end_date_time']")
-    
+        transportations = pd.read_table(user_row['meta']['path'] + "/labels.txt")
+        matching_transport = transportations.query(
+            "`Start Time` == @activity_row['start_date_time'] and `End Time` == @activity_row['end_date_time']")
+
         if not matching_transport.empty:
-            activity['transportation_mode'] = matching_transport['Transportation Mode'].iloc[0]
-    return activity, trackpoints_df
+            activity_row['transportation_mode'] = matching_transport['Transportation Mode'].iloc[0]
+    return activity_row, trackpoints_df
 
 
-def process_trackpoints(activity_id, trackpoints_df):
-    trackpoints = []
-    for _, trackpoint in trackpoints_df.iterrows():
-        trackpoints.append({
-            'activity_id': activity_id,
-            'lat': trackpoint['lat'],
-            'lon': trackpoint['lon'],
-            'altitude': trackpoint['alt'] if trackpoint['alt'] != -777 else None,
-            'date_days': trackpoint['date'],
-            'date_time': trackpoint['date_str'] + " " + trackpoint['time_str']
-        })
-    return trackpoints
+def process_trackpoint(activity_id, trackpoint_row):
+    return {
+        'activity_id': activity_id,
+        'lat': trackpoint_row['lat'],
+        'lon': trackpoint_row['lon'],
+        'altitude': trackpoint_row['alt'] if trackpoint_row['alt'] != -777 else None,
+        'date_days': trackpoint_row['date'],
+        'date_time': trackpoint_row['date_str'] + " " + trackpoint_row['time_str']
+    }
