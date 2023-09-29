@@ -143,8 +143,8 @@ def insert_data(database: Database, data_path, labeled_ids):
 
 def time_elapsed_str(start_time):
     elapsed = time.time() - start_time
-    minutes = elapsed / 60
-    seconds = elapsed % 60
+    minutes = int(elapsed / 60)
+    seconds = int(elapsed % 60)
     return f'{minutes} minutes and {seconds} seconds.'
 
 
