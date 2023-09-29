@@ -71,15 +71,9 @@ def process_activity(user_row, activity_row):
     # Build activity
     activity = {
         'user_id': activity_row['user_id'],
-<<<<<<< HEAD
         'transportation_mode': None,
-        'start_date_time': trackpoints_df['date_str'].iloc[0] + " " + trackpoints_df['time_str'].iloc[0],
-        'end_date_time': trackpoints_df['date_str'].iloc[-1] + " " + trackpoints_df['time_str'].iloc[-1],
-=======
-        'transportation_mode': 'null',
         'start_date_time': pd.Timestamp(trackpoints_df['date_str'].iloc[0] + " " + trackpoints_df['time_str'].iloc[0]),
         'end_date_time': pd.Timestamp(trackpoints_df['date_str'].iloc[-1] + " " + trackpoints_df['time_str'].iloc[-1]),
->>>>>>> 6dde8d8 (added slingringsmonn)
     }
 
     # Add transport type if matching
