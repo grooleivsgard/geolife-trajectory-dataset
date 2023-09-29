@@ -110,6 +110,7 @@ def insert_row_and_get_id(database: Database, table_name, row: dict):
 
 
 def insert_data(database: Database, data_path, labeled_ids):
+    start_time = time.time()
     users_rows = process_users(path=data_path, labeled_ids=labeled_ids)
     num_users = len(users_rows)
     insert_batch(database=database, batch=users_rows, table_name='User')
@@ -136,10 +137,18 @@ def insert_data(database: Database, data_path, labeled_ids):
             insert_batch(database, 'TrackPoint', trackpoints)
 
         print(f'Completed insertion of user {user_row["id"]} ({i} / {num_users}):\n '
-              f'\tInserted activities: {num_activities - skipped_activities}\n')
+              f'\tInserted activities: {num_activities - skipped_activities}\n'
+              f'Time elapsed: {time_elapsed_str(start_time)}')
+
+
+def time_elapsed_str(start_time):
+    elapsed = time.time() - start_time
+    minutes = elapsed / 60
+    seconds = elapsed % 60
+    return f'{minutes} minutes and {seconds} seconds.'
+
 
 def execute():
-    start_time = time.time()
     data_path = './dataset/dataset/Data'
     labeled_ids = read_file_to_list('./dataset/dataset/labeled_ids.txt')
     database = open_connection()
@@ -148,11 +157,6 @@ def execute():
     insert_data(database, data_path, labeled_ids)
 
     close_connection(database)
-    elapsed = time.time() - start_time
-
-    minutes = elapsed / 60
-    seconds = elapsed % 60
-    print(f"Time: {minutes} minutes and {seconds} seconds.")
 
 
 execute()
