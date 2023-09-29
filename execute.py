@@ -71,8 +71,9 @@ def create_tables(database: Database, debug=False):
 def insert_batch(database: Database, table_name, batch: list):
     try:
         database.db_connection.start_transaction()
-        for row in batch:
-            del row['meta']
+        if 'meta' in batch[0].keys():
+            for row in batch:
+                del row['meta']
 
         df = pd.DataFrame(batch)
         if 'meta' in batch[0].keys():
@@ -117,7 +118,7 @@ def insert_row_and_get_id(database: Database, table_name, row: dict):
         return None
 
 
-def insert_data(database: Database, data_path, labeled_ids, tp_batch_threshold=10e5):
+def insert_data(database: Database, data_path, labeled_ids, tp_batch_threshold=10e4):
     start_time = time.time()
     users_rows = process_users(path=data_path, labeled_ids=labeled_ids)
     insert_batch(database=database, batch=copy.deepcopy(users_rows), table_name='User')
@@ -155,7 +156,7 @@ def insert_data(database: Database, data_path, labeled_ids, tp_batch_threshold=1
                 print(f'\tInserted approx: {num_activities} activities and {num_trackpoints} trackpoints\n')
 
         print(f'Completed insertion of user {user_row["id"]} ({i} / {num_users})\n'
-              f'Number of trackpoints queued: {len(trackpoint_buffer)}'
+              f'Number of trackpoints queued: {len(trackpoint_buffer)} \n'
               f'Time elapsed: {time_elapsed_str(start_time)}\n')
 
 
@@ -172,7 +173,7 @@ def execute():
     database = open_connection()
 
     create_tables(database, debug=False)
-    insert_data(database, data_path, labeled_ids, tp_batch_threshold=10e5)
+    insert_data(database, data_path, labeled_ids, tp_batch_threshold=10e4)
 
     close_connection(database)
 
