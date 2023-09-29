@@ -39,7 +39,7 @@ def create_tables(database: Database, debug=False):
 
     activity = {
         'name': 'Activity',
-        'attributes': ['id INT UNSIGNED NOT NULL', 'user_id VARCHAR(3) NOT NULL',
+        'attributes': ['id BIGINT UNSIGNED NOT NULL', 'user_id VARCHAR(3) NOT NULL',
                        'transportation_mode VARCHAR(30)', 'start_date_time DATETIME', 'end_date_time DATETIME'],
         'primary': 'id',
         'foreign': {
@@ -50,7 +50,7 @@ def create_tables(database: Database, debug=False):
 
     trackpoint = {
         'name': 'TrackPoint',
-        'attributes': ['id INT UNSIGNED NOT NULL AUTO_INCREMENT', 'activity_id INT UNSIGNED NOT NULL', 'lat DOUBLE',
+        'attributes': ['id INT UNSIGNED NOT NULL AUTO_INCREMENT', 'activity_id BIGINT UNSIGNED NOT NULL', 'lat DOUBLE',
                        'lon DOUBLE',
                        'altitude INT', 'date_days DOUBLE', 'date_time DATETIME'],
         'primary': "id",
@@ -150,7 +150,7 @@ def insert_data(database: Database, data_path, labeled_ids, tp_batch_threshold=1
 
                 # Insert trackpoints
                 num_trackpoints = len(trackpoint_buffer)
-                insert_batch(database=database, table_name='Trackpoint', batch=list(trackpoint_buffer))
+                insert_batch(database=database, table_name='TrackPoint', batch=list(trackpoint_buffer))
                 trackpoint_buffer.clear()
 
                 print(f'\tInserted approx: {num_activities} activities and {num_trackpoints} trackpoints\n')
@@ -173,7 +173,7 @@ def execute():
     database = open_connection()
 
     create_tables(database, debug=False)
-    insert_data(database, data_path, labeled_ids, tp_batch_threshold=10e4)
+    insert_data(database, data_path, labeled_ids, tp_batch_threshold=650000)
 
     close_connection(database)
 
