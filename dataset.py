@@ -48,17 +48,16 @@ def process_users(path, labeled_ids):
     return user_rows
 
 
-def preprocess_activities(user_rows):
+def preprocess_activities(user_row):
     activity_rows = []
-    for user_row in user_rows:
-        with os.scandir(user_row['path'] + "/Trajectory") as activities:
-            for activity in activities:
-                if activity.is_file():
-                    activity = {
-                        "user_id": user_row["id"],
-                        "path": activity.path
-                    }
-                    activity_rows.append(activity)
+    with os.scandir(user_row['path'] + "/Trajectory") as activities:
+        for activity in activities:
+            if activity.is_file():
+                activity = {
+                    "user_id": user_row["id"],
+                    "path": activity.path
+                }
+                activity_rows.append(activity)
     return activity_rows
 
 
