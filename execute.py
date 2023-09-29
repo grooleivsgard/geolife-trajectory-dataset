@@ -124,7 +124,8 @@ def insert_data(database: Database, data_path, labeled_ids):
         for activity_row in activity_rows:
             activity, trackpoints_df = process_activity(user_row, activity_row=activity_row)
             if not activity:
-                # Reduce overhead by skipping redundant processing of activities which will not be added anyway.
+                # Reduce overhead by skipping redundant processing of activities and trackpoints which will not be
+                # added anyway.
                 skipped_activities += 1
                 continue
 

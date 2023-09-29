@@ -71,7 +71,7 @@ def process_activity(user_row, activity_row):
     # Build activity
     activity = {
         'user_id': activity_row['user_id'],
-        'transportation_mode': 'null',
+        'transportation_mode': None,
         'start_date_time': trackpoints_df['date_str'].iloc[0] + " " + trackpoints_df['time_str'].iloc[0],
         'end_date_time': trackpoints_df['date_str'].iloc[-1] + " " + trackpoints_df['time_str'].iloc[-1],
     }
@@ -93,7 +93,7 @@ def process_trackpoints(activity_id, trackpoints_df):
             'activity_id': activity_id,
             'lat': trackpoint['lat'],
             'lon': trackpoint['lon'],
-            'altitude': trackpoint['alt'],
+            'altitude': trackpoint['alt'] if trackpoint['alt'] != -777 else None,
             'date_days': trackpoint['date'],
             'date_time': trackpoint['date_str'] + " " + trackpoint['time_str']
         })
