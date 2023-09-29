@@ -117,11 +117,13 @@ def insert_data(database: Database, data_path, labeled_ids):
     for user_row in users_rows:
         activity_rows = preprocess_activities(user_rows=users_rows)
         num_activities = len(activity_rows)
+        skipped_activities = 0
 
         for i, activity_row in enumerate(activity_rows):
             activity, trackpoints_df = process_activity(user_row, activity_row=activity_row)
             if not activity:
                 # Reduce overhead by skipping redundant processing of activities which will not be added anyway.
+                skipped_activities += 1
                 continue
 
             # Insert activity and retrieve its ID
@@ -129,11 +131,14 @@ def insert_data(database: Database, data_path, labeled_ids):
             if activity_id is None:
                 exit(1337)
 
-            if (i + 1) % 100 == 0:
-                print(f"Inserted activity {activity_id} / {num_activities}")
-
             trackpoints = process_trackpoints(activity_id, trackpoints_df)
             insert_batch(database, 'TrackPoint', trackpoints)
+
+            if (i - skipped_activities + 1) % 100 == 0:
+                print(f"\nInserted activity {i+1 - skipped_activities} / {num_activities}, ID: {activity_id}")
+                # print(activity)
+                # print(trackpoints[0])
+
 
 
 def execute():
@@ -142,7 +147,7 @@ def execute():
     labeled_ids = read_file_to_list('./dataset/dataset/labeled_ids.txt')
     database = open_connection()
 
-    create_tables(database, debug=True)
+    create_tables(database, debug=False)
     insert_data(database, data_path, labeled_ids)
 
     close_connection(database)

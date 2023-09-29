@@ -81,8 +81,8 @@ def process_activity(user_row, activity_row):
     if user_row['has_labels']:
         transportations = pd.read_table(user_row['path'] + "/labels.txt")
         for index in transportations.index:
-            if (activity['start_time'] == transportations['Start Time'].iloc[index]
-                    and activity['end_time'] == transportations['End Time'].iloc[index]):
+            if (activity['start_date_time'] == transportations['Start Time'].iloc[index]
+                    and activity['end_date_time'] == transportations['End Time'].iloc[index]):
                 activity['transportation_mode'] = transportations['Transportation Mode'].iloc[index]
                 break
 
