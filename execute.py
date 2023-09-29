@@ -114,7 +114,7 @@ def insert_data(database: Database, data_path, labeled_ids):
     users_rows = process_users(path=data_path, labeled_ids=labeled_ids)
     num_users = len(users_rows)
     insert_batch(database=database, batch=users_rows, table_name='User')
-    print(f"Inserted {len(users_rows)} users into User")
+    print(f"Inserted {num_users} users into User")
 
     for i, user_row in enumerate(users_rows):
         activity_rows = preprocess_activities(user_row=user_row)
@@ -158,5 +158,5 @@ def execute():
 
     close_connection(database)
 
-
+# Execution
 execute()
