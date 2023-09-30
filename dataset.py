@@ -70,12 +70,18 @@ def process_activity(user_row, activity_row):
     # Expand activity
     activity_row['start_date_time'] = trackpoints_df['date_str'].iloc[0] + " " + trackpoints_df['time_str'].iloc[0]
     activity_row['end_date_time'] = trackpoints_df['date_str'].iloc[-1] + " " + trackpoints_df['time_str'].iloc[-1]
-
-    # Add transport type if matching
+    activity_row['start_date_time'] = pd.to_datetime(activity_row['start_date_time'])
+    activity_row['end_date_time'] = pd.to_datetime(activity_row['end_date_time'])
     if user_row['has_labels']:
         transportations = pd.read_table(user_row['meta']['path'] + "/labels.txt")
-        matching_transport = transportations.query(
-            "`Start Time` == @activity_row['start_date_time'] and `End Time` == @activity_row['end_date_time']")
+        transportations['Start Time'] = pd.to_datetime(transportations['Start Time'])
+        transportations['End Time'] = pd.to_datetime(transportations['End Time'])
+
+        time_tolerance = pd.Timedelta(seconds=1)
+        matching_transport = transportations[
+            (transportations['Start Time'].between(activity_row['start_date_time'] - time_tolerance, activity_row['start_date_time'] + time_tolerance)) &
+            (transportations['End Time'].between(activity_row['end_date_time'] - time_tolerance, activity_row['end_date_time'] + time_tolerance))
+        ]
 
         if not matching_transport.empty:
             activity_row['transportation_mode'] = matching_transport['Transportation Mode'].iloc[0]
