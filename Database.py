@@ -1,50 +1,63 @@
 from DbConnector import DbConnector
 from tabulate import tabulate
 import pandas as pd
-import mysql
+import mysql.connector
 
 
 class Database:
     def __init__(self):
+        """
+        Initializes the Database object by establishing a database connection and creating a cursor.
+        """
         self.connection = DbConnector()
         self.db_connection = self.connection.db_connection
         self.cursor = self.connection.cursor
 
     def create_table(self, table_name: str, attributes: list, primary_key: str, foreign: dict = None, debug=False):
+        """
+        Creates a table in the database.
+
+        :param table_name: The name of the table to be created.
+        :param attributes: A list of attributes for the table.
+        :param primary_key: The primary key for the table.
+        :param foreign: A dictionary containing foreign key details.
+        :param debug: A flag to print debug information.
+        """
         query = f"CREATE TABLE IF NOT EXISTS {table_name}("
-                
-        # Add attributes
+
+        # Add attributes to the query
         for attribute in attributes:
             if attribute == attributes[-1]:
                 query += f'{attribute},\n'
             else:
                 query += f'\n{attribute},'
 
-        # Primary 
-        query += f'PRIMARY KEY ({primary_key})'
-        
-        # If foreign
-        if foreign: 
+        query += f'\nPRIMARY KEY ({primary_key})'
+
+        if foreign:
             query += f',\nFOREIGN KEY ({foreign["key"]}) REFERENCES {foreign["references"]}'
 
-        # End statement
         query += "\n);"
 
         if debug:
             print(f'\nTable created: {table_name}\n')
             print(f'Query: {query}\n')
 
-        # This adds table_name to the %s variable and executes the query
+        # Execute the query
         self.cursor.execute(query)
         self.db_connection.commit()
 
-    def drop(self, tables:list, debug=False):
+    def drop(self, tables: list, debug=False):
+        """
+        Drops the specified tables from the database.
+
+        :param tables: A list of table names to be dropped.
+        :param debug: A flag to print debug information.
+        """
         query = "DROP TABLE IF EXISTS"
         for table in tables:
-            if table == tables[-1]:
-                query += f' {table};'
-            else:
-                query += f" {table}, "
+            query += f" {table},"
+        query = query.rstrip(',')
 
         if debug:
             print(query)
@@ -52,7 +65,13 @@ class Database:
         self.cursor.execute(query)
         self.db_connection.commit()
 
-    def insert_batch(self, table_name, batch: list):
+    def insert_batch(self, table_name: str, batch: list):
+        """
+        Inserts a batch of rows into the specified table.
+
+        :param table_name: The name of the table to insert data into.
+        :param batch: A list of dictionaries, each representing a row to be inserted.
+        """
         try:
             self.db_connection.start_transaction()
             if 'meta' in batch[0].keys():
@@ -60,7 +79,6 @@ class Database:
                     del row['meta']
 
             df = pd.DataFrame(batch)
-
             data = [tuple(row) for row in df.values]
             columns = ', '.join(df.columns)
             placeholders = ', '.join(['%s'] * len(df.columns))
@@ -73,6 +91,9 @@ class Database:
             self.db_connection.rollback()
 
     def close_connection(self):
+        """
+        Closes the database connection.
+        """
         try:
             self.connection.close_connection()
         except Exception as e:

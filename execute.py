@@ -1,7 +1,5 @@
 import time
 import copy
-from queue import Queue
-
 from Database import Database
 import pandas as pd
 import mysql.connector
@@ -9,14 +7,24 @@ from dataset import process_users, preprocess_activities, process_activity, proc
 
 
 def time_elapsed_str(start_time):
+    """
+    Calculate the time elapsed from the start_time to now.
+
+    :param start_time: The start time to calculate elapsed time from.
+    :return: A string representing the elapsed time in minutes and seconds.
+    """
     elapsed = time.time() - start_time
     minutes = round(elapsed / 60, 0)
     seconds = round(elapsed % 60, 0)
     return f'{minutes} minutes and {seconds} seconds.'
 
 
-# Task1
 def open_connection() -> Database:
+    """
+    Open a connection to the database.
+
+    :return: A Database object representing the connection to the database.
+    """
     database = None
     try:
         database = Database()
@@ -26,6 +34,13 @@ def open_connection() -> Database:
 
 
 def create_tables(database: Database, debug=False):
+    """
+    Create tables in the database.
+
+    :param database: The Database object to operate on.
+    :param debug: A flag to print debug information.
+    """
+
     # Table dicts
     user = {
         'name': "User",
@@ -64,34 +79,16 @@ def create_tables(database: Database, debug=False):
                           debug=debug)
 
 
-def insert_row_and_get_id(database: Database, table_name, row: dict):
-    # Preprocess for insertion
-    if 'meta' in row.keys():
-        del row['meta']
-        if 'has_labels' in row:
-            row['has_labels'] = int(row['has_labels'])
-
-    # Prepare the data and query for insertion
-    data = tuple(row.values())
-    columns = ', '.join(row.keys())
-    placeholders = ', '.join(['%s'] * len(row.keys()))
-    query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
-
-    try:
-        # Start a transaction to insert and retrieve its ID
-        database.db_connection.start_transaction()
-        database.cursor.execute(query, data)
-        last_inserted_id = database.cursor.lastrowid
-        database.db_connection.commit()
-
-        return last_inserted_id
-    except mysql.connector.Error as e:
-        print(f"An error occurred: {e}")
-        database.db_connection.rollback()  # Rollback the transaction in case of an error
-        return None
-
-
 def push_buffers_to_db(database, activity_buffer, trackpoint_buffer, num_activities, num_trackpoints):
+    """
+    Push processed activities and trackpoints to the database.
+
+    :param database: The Database object to operate on.
+    :param activity_buffer: A list of buffered activities.
+    :param trackpoint_buffer: A list of buffered trackpoints.
+    :param num_activities: The number of activities.
+    :param num_trackpoints: The number of trackpoints.
+    """
     insert_time = time.time()
     print(f'\nInserting: {num_activities} activities and {num_trackpoints} trackpoints')
 
@@ -108,6 +105,14 @@ def push_buffers_to_db(database, activity_buffer, trackpoint_buffer, num_activit
 
 
 def insert_data(database: Database, data_path, labeled_ids, insert_threshold=10e4):
+    """
+    Insert data into the database.
+
+    :param database: The Database object to operate on.
+    :param data_path: The path to the data to be inserted.
+    :param labeled_ids: A list of labeled IDs.
+    :param insert_threshold: The threshold for batch insertion.
+    """
     start_time = time.time()
     users_rows = process_users(path=data_path, labeled_ids=labeled_ids)
     database.insert_batch(batch=copy.deepcopy(users_rows), table_name='User')
@@ -143,6 +148,9 @@ def insert_data(database: Database, data_path, labeled_ids, insert_threshold=10e
 
 
 def execute():
+    """
+    Execute the database operations.
+    """
     if __name__ == "__main__":
         data_path = './dataset/dataset/Data'
         labeled_ids = read_file_to_list('./dataset/dataset/labeled_ids.txt')

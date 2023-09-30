@@ -1,74 +1,79 @@
 import pandas as pd
 import os
-from queue import Queue
 
 
-def read_file_to_list(file_path):
+def read_file_to_list(file_path: str) -> list:
     """
-    Open a text file and extract each line as a string to a list.
+    Reads a text file and returns each line as a string in a list.
 
-    :param file_path: Path to the text file.
-    :return: List of strings, each representing a line in the text file.
+    :param file_path: The path to the text file.
+    :return: A list of strings, each representing a line in the text file.
     """
     try:
         with open(file_path, 'r') as file:
-            # Reading each line
-            lines_list = file.readlines()
-
-            # Removing any leading and trailing whitespaces from each line
-            lines_list = [line.strip() for line in lines_list]
-
+            lines_list = [line.strip() for line in file.readlines()]
         return lines_list
-
     except Exception as e:
         print(f"An error occurred: {e}")
         return None
 
 
-def process_users(path, labeled_ids):
+def process_users(path: str, labeled_ids: list) -> list:
+    """
+    Processes user directories and returns a list of user data.
+
+    :param path: The path to the user directories.
+    :param labeled_ids: A list of labeled user IDs.
+    :return: A list of dictionaries, each containing user data.
+    """
     user_rows = []
     with os.scandir(path) as users:
         for user in users:
             if user.is_dir():
                 user_row = {
                     "id": user.name,
-                    "has_labels": True if user.name in labeled_ids else False,
-                    "meta": {
-                        "path": user.path
-                    }
+                    "has_labels": user.name in labeled_ids,
+                    "meta": {"path": user.path}
                 }
                 user_rows.append(user_row)
-
-    # Insert user
     return user_rows
 
 
-def preprocess_activities(user_row):
+def preprocess_activities(user_row: dict) -> list:
+    """
+    Processes activity files and returns a list of activity data.
+
+    :param user_row: A dictionary containing user data.
+    :return: A list of dictionaries, each containing activity data.
+    """
     activity_rows = []
     with os.scandir(user_row['meta']['path'] + "/Trajectory") as activities:
         for activity in activities:
             if activity.is_file():
-                activity = {
+                activity_row = {
                     "id": int(user_row["id"] + activity.name[:-4]),
                     "user_id": user_row["id"],
                     "transportation_mode": None,
-                    "meta": {
-                        "name": activity.name,
-                        "path": activity.path
-                    }
+                    "meta": {"name": activity.name, "path": activity.path}
                 }
-                activity_rows.append(activity)
+                activity_rows.append(activity_row)
     return activity_rows
 
 
-def process_activity(user_row, activity_row):
+def process_activity(user_row: dict, activity_row: dict) -> tuple:
+    """
+    Processes an activity and returns the expanded activity data and trackpoints data frame.
+
+    :param user_row: A dictionary containing user data.
+    :param activity_row: A dictionary containing activity data.
+    :return: A tuple containing the expanded activity data and trackpoints data frame.
+    """
     columns = ['lat', 'lon', 'dep1', 'alt', 'date', 'date_str', 'time_str']
     trackpoints_df = pd.read_table(activity_row['meta']['path'], skiprows=7, names=columns, delimiter=',')
 
-    if trackpoints_df.shape[0] > 2500:  # check if rows not columns
+    if trackpoints_df.shape[0] > 2500:
         return None, None
 
-    # Expand activity
     activity_row['start_date_time'] = pd.to_datetime(trackpoints_df['date_str'].iloc[0] + " " + trackpoints_df['time_str'].iloc[0])
     activity_row['end_date_time'] = pd.to_datetime(trackpoints_df['date_str'].iloc[-1] + " " + trackpoints_df['time_str'].iloc[-1])
 
@@ -89,7 +94,14 @@ def process_activity(user_row, activity_row):
     return activity_row, trackpoints_df
 
 
-def process_trackpoint(activity_id, trackpoint_row):
+def process_trackpoint(activity_id: int, trackpoint_row: pd.Series) -> dict:
+    """
+    Processes a trackpoint and returns the trackpoint data.
+
+    :param activity_id: The ID of the activity.
+    :param trackpoint_row: A pandas Series containing trackpoint data.
+    :return: A dictionary containing the processed trackpoint data.
+    """
     return {
         'activity_id': activity_id,
         'lat': trackpoint_row['lat'],
