@@ -110,19 +110,22 @@ def insert_row_and_get_id(database: Database, table_name, row: dict):
 
 
 def insert_data(database: Database, data_path, labeled_ids):
+    start_time = time.time()
     users_rows = process_users(path=data_path, labeled_ids=labeled_ids)
+    num_users = len(users_rows)
     insert_batch(database=database, batch=users_rows, table_name='User')
-    print(f"Inserted {len(users_rows)} users into User")
+    print(f"Inserted {num_users} users into User")
 
-    for user_row in users_rows:
-        activity_rows = preprocess_activities(user_rows=users_rows)
+    for i, user_row in enumerate(users_rows):
+        activity_rows = preprocess_activities(user_row=user_row)
         num_activities = len(activity_rows)
         skipped_activities = 0
 
-        for i, activity_row in enumerate(activity_rows):
+        for activity_row in activity_rows:
             activity, trackpoints_df = process_activity(user_row, activity_row=activity_row)
             if not activity:
-                # Reduce overhead by skipping redundant processing of activities which will not be added anyway.
+                # Reduce overhead by skipping redundant processing of activities and trackpoints which will not be
+                # added anyway.
                 skipped_activities += 1
                 continue
 
@@ -134,15 +137,19 @@ def insert_data(database: Database, data_path, labeled_ids):
             trackpoints = process_trackpoints(activity_id, trackpoints_df)
             insert_batch(database, 'TrackPoint', trackpoints)
 
-            if (i - skipped_activities + 1) % 100 == 0:
-                print(f"\nInserted activity {i+1 - skipped_activities} / {num_activities}, ID: {activity_id}")
-                # print(activity)
-                # print(trackpoints[0])
+        print(f'Completed insertion of user {user_row["id"]} ({i} / {num_users}):\n '
+              f'\tInserted activities: {num_activities - skipped_activities}\n'
+              f'Time elapsed: {time_elapsed_str(start_time)}')
 
+
+def time_elapsed_str(start_time):
+    elapsed = time.time() - start_time
+    minutes = int(elapsed / 60)
+    seconds = int(elapsed % 60)
+    return f'{minutes} minutes and {seconds} seconds.'
 
 
 def execute():
-    start_time = time.time()
     data_path = './dataset/dataset/Data'
     labeled_ids = read_file_to_list('./dataset/dataset/labeled_ids.txt')
     database = open_connection()
@@ -151,11 +158,6 @@ def execute():
     insert_data(database, data_path, labeled_ids)
 
     close_connection(database)
-    elapsed = time.time() - start_time
 
-    minutes = elapsed / 60
-    seconds = elapsed % 60
-    print(f"Time: {minutes} minutes and {seconds} seconds.")
-
-
+# Execution
 execute()

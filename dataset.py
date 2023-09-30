@@ -48,17 +48,16 @@ def process_users(path, labeled_ids):
     return user_rows
 
 
-def preprocess_activities(user_rows):
+def preprocess_activities(user_row):
     activity_rows = []
-    for user_row in user_rows:
-        with os.scandir(user_row['path'] + "/Trajectory") as activities:
-            for activity in activities:
-                if activity.is_file():
-                    activity = {
-                        "user_id": user_row["id"],
-                        "path": activity.path
-                    }
-                    activity_rows.append(activity)
+    with os.scandir(user_row['path'] + "/Trajectory") as activities:
+        for activity in activities:
+            if activity.is_file():
+                activity = {
+                    "user_id": user_row["id"],
+                    "path": activity.path
+                }
+                activity_rows.append(activity)
     return activity_rows
 
 
@@ -72,21 +71,29 @@ def process_activity(user_row, activity_row):
     # Build activity
     activity = {
         'user_id': activity_row['user_id'],
-        'transportation_mode': 'null',
-        'start_date_time': trackpoints_df['date_str'].iloc[0] + " " + trackpoints_df['time_str'].iloc[0],
-        'end_date_time': trackpoints_df['date_str'].iloc[-1] + " " + trackpoints_df['time_str'].iloc[-1],
+        'transportation_mode': None,
+        'start_date_time': pd.Timestamp(trackpoints_df['date_str'].iloc[0] + " " + trackpoints_df['time_str'].iloc[0]),
+        'end_date_time': pd.Timestamp(trackpoints_df['date_str'].iloc[-1] + " " + trackpoints_df['time_str'].iloc[-1]),
     }
 
     # Add transport type if matching
     if user_row['has_labels']:
         transportations = pd.read_table(user_row['path'] + "/labels.txt")
-        for index in transportations.index:
-            if (activity['start_date_time'] == transportations['Start Time'].iloc[index]
-                    and activity['end_date_time'] == transportations['End Time'].iloc[index]):
-                activity['transportation_mode'] = transportations['Transportation Mode'].iloc[index]
-                break
+        transportations['Start Time'] = pd.to_datetime(transportations['Start Time'])
+        transportations['End Time'] = pd.to_datetime(transportations['End Time'])
+
+        time_tolerance = pd.Timedelta(seconds=5)
+        matching_transport = transportations[
+            (transportations['Start Time'].between(activity['start_date_time'] - time_tolerance, activity['start_date_time'] + time_tolerance)) &
+            (transportations['End Time'].between(activity['end_date_time'] - time_tolerance, activity['end_date_time'] + time_tolerance))
+        ]
+
+        if not matching_transport.empty:
+            activity['transportation_mode'] = matching_transport['Transportation Mode'].iloc[0]
+            print("Match found!")
 
     return activity, trackpoints_df
+
 
 
 def process_trackpoints(activity_id, trackpoints_df):
@@ -96,7 +103,7 @@ def process_trackpoints(activity_id, trackpoints_df):
             'activity_id': activity_id,
             'lat': trackpoint['lat'],
             'lon': trackpoint['lon'],
-            'altitude': trackpoint['alt'],
+            'altitude': trackpoint['alt'] if trackpoint['alt'] != -777 else None,
             'date_days': trackpoint['date'],
             'date_time': trackpoint['date_str'] + " " + trackpoint['time_str']
         })
