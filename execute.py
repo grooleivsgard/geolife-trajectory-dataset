@@ -94,7 +94,6 @@ def insert_row_and_get_id(database: Database, table_name, row: dict):
 def push_buffers_to_db(database, activity_buffer, trackpoint_buffer, num_activities, num_trackpoints):
     insert_time = time.time()
     print(f'\nInserting: {num_activities} activities and {num_trackpoints} trackpoints')
-    print(activity_buffer)
 
     # Insert activities
     database.insert_batch(table_name='Activity', batch=list(activity_buffer))
