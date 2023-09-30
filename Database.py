@@ -1,5 +1,7 @@
 from DbConnector import DbConnector
 from tabulate import tabulate
+import pandas as pd
+import mysql
 
 
 class Database:
@@ -36,32 +38,42 @@ class Database:
         self.cursor.execute(query)
         self.db_connection.commit()
 
-    def insert_data(self, table_name):
-        names = ['Bobby', 'Mc', 'McSmack', 'Board']
-        for name in names:
-            # Take note that the name is wrapped in '' --> '%s' because it is a string,
-            # while an int would be %s etc
-            query = "INSERT INTO %s (name) VALUES ('%s')"
-            self.cursor.execute(query % (table_name, name))
+    def drop(self, tables:list, debug=False):
+        query = "DROP TABLE IF EXISTS"
+        for table in tables:
+            if table == tables[-1]:
+                query += f' {table};'
+            else:
+                query += f" {table}, "
+
+        if debug:
+            print(query)
+
+        self.cursor.execute(query)
         self.db_connection.commit()
 
-    def fetch_data(self, table_name):
-        query = "SELECT * FROM %s"
-        self.cursor.execute(query % table_name)
-        rows = self.cursor.fetchall()
-        print("Data from table %s, raw format:" % table_name)
-        print(rows)
-        # Using tabulate to show the table in a nice way
-        print("Data from table %s, tabulated:" % table_name)
-        print(tabulate(rows, headers=self.cursor.column_names))
-        return rows
+    def insert_batch(self, table_name, batch: list):
+        try:
+            self.db_connection.start_transaction()
+            if 'meta' in batch[0].keys():
+                for row in batch:
+                    del row['meta']
 
-    def drop_table(self, table_name):
-        print("Dropping table %s..." % table_name)
-        query = "DROP TABLE %s"
-        self.cursor.execute(query % table_name)
+            df = pd.DataFrame(batch)
 
-    def show_tables(self):
-        self.cursor.execute("SHOW TABLES")
-        rows = self.cursor.fetchall()
-        print(tabulate(rows, headers=self.cursor.column_names))
+            data = [tuple(row) for row in df.values]
+            columns = ', '.join(df.columns)
+            placeholders = ', '.join(['%s'] * len(df.columns))
+            query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+
+            self.cursor.executemany(query, data)
+            self.db_connection.commit()
+        except mysql.connector.Error as e:
+            print(f"An error occurred: {e}")
+            self.db_connection.rollback()
+
+    def close_connection(self):
+        try:
+            self.connection.close_connection()
+        except Exception as e:
+            print("ERROR: Failed to close database:", e)
