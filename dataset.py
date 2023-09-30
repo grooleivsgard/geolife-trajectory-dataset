@@ -51,6 +51,7 @@ def preprocess_activities(user_row):
                 activity = {
                     "id": int(user_row["id"] + activity.name[:-4]),
                     "user_id": user_row["id"],
+                    "transportation_mode": None,
                     "meta": {
                         "name": activity.name,
                         "path": activity.path
@@ -70,7 +71,7 @@ def process_activity(user_row, activity_row):
     # Expand activity
     activity_row['start_date_time'] = trackpoints_df['date_str'].iloc[0] + " " + trackpoints_df['time_str'].iloc[0]
     activity_row['end_date_time'] = trackpoints_df['date_str'].iloc[-1] + " " + trackpoints_df['time_str'].iloc[-1]
-    activity_row['start_date_time'] = pd.to_datetime(activity_row['start_date_time'])
+    activity_row['start_date_time'] = gactivity_row['start_date_time'])
     activity_row['end_date_time'] = pd.to_datetime(activity_row['end_date_time'])
     if user_row['has_labels']:
         transportations = pd.read_table(user_row['meta']['path'] + "/labels.txt")
@@ -85,6 +86,7 @@ def process_activity(user_row, activity_row):
 
         if not matching_transport.empty:
             activity_row['transportation_mode'] = matching_transport['Transportation Mode'].iloc[0]
+
     return activity_row, trackpoints_df
 
 
