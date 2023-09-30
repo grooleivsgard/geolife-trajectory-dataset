@@ -1,5 +1,7 @@
 from DbConnector import DbConnector
 from tabulate import tabulate
+import pandas as pd
+import mysql
 
 
 class Database:
@@ -36,11 +38,44 @@ class Database:
         self.cursor.execute(query)
         self.db_connection.commit()
 
-    def insert_data(self, table_name):
-        names = ['Bobby', 'Mc', 'McSmack', 'Board']
-        for name in names:
-            # Take note that the name is wrapped in '' --> '%s' because it is a string,
-            # while an int would be %s etc
-            query = "INSERT INTO %s (name) VALUES ('%s')"
-            self.cursor.execute(query % (table_name, name))
+    def drop(self, tables:list, debug=False):
+        query = "DROP TABLE IF EXISTS"
+        for table in tables:
+            if table == tables[-1]:
+                query += f' {table};'
+            else:
+                query += f" {table}, "
+
+        if debug:
+            print(query)
+
+        self.cursor.execute(query)
         self.db_connection.commit()
+
+    def insert_batch(self, table_name, batch: list):
+        try:
+            self.db_connection.start_transaction()
+            if 'meta' in batch[0].keys():
+                for row in batch:
+                    del row['meta']
+
+            df = pd.DataFrame(batch)
+            if 'meta' in batch[0].keys():
+                df = df.drop(columns='meta')
+
+            data = [tuple(row) for row in df.values]
+            columns = ', '.join(df.columns)
+            placeholders = ', '.join(['%s'] * len(df.columns))
+            query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+
+            self.cursor.executemany(query, data)
+            self.db_connection.commit()
+        except mysql.connector.Error as e:
+            print(f"An error occurred: {e}")
+            self.db_connection.rollback()
+
+    def close_connection(self):
+        try:
+            self.connection.close_connection()
+        except Exception as e:
+            print("ERROR: Failed to close database:", e)

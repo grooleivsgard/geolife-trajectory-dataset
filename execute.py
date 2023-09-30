@@ -8,6 +8,13 @@ import mysql.connector
 from dataset import process_users, preprocess_activities, process_activity, process_trackpoint, read_file_to_list
 
 
+def time_elapsed_str(start_time):
+    elapsed = time.time() - start_time
+    minutes = round(elapsed / 60, 0)
+    seconds = round(elapsed % 60, 0)
+    return f'{minutes} minutes and {seconds} seconds.'
+
+
 # Task1
 def open_connection() -> Database:
     database = None
@@ -18,17 +25,6 @@ def open_connection() -> Database:
     return database
 
 
-def close_connection(database: Database):
-    if database:
-        try:
-            database.connection.close_connection()
-        except Exception as e:
-            print("ERROR: Failed to close database:", e)
-    else:
-        print("Database is None.")
-
-
-# 2. Creates and define the tables User, Activity and TrackPoint
 def create_tables(database: Database, debug=False):
     # Table dicts
     user = {
@@ -68,29 +64,6 @@ def create_tables(database: Database, debug=False):
                           debug=debug)
 
 
-def insert_batch(database: Database, table_name, batch: list):
-    try:
-        database.db_connection.start_transaction()
-        if 'meta' in batch[0].keys():
-            for row in batch:
-                del row['meta']
-
-        df = pd.DataFrame(batch)
-        if 'meta' in batch[0].keys():
-            df = df.drop(columns='meta')
-
-        data = [tuple(row) for row in df.values]
-        columns = ', '.join(df.columns)
-        placeholders = ', '.join(['%s'] * len(df.columns))
-        query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
-
-        database.cursor.executemany(query, data)
-        database.db_connection.commit()
-    except mysql.connector.Error as e:
-        print(f"An error occurred: {e}")
-        database.db_connection.rollback()
-
-
 def insert_row_and_get_id(database: Database, table_name, row: dict):
     # Preprocess for insertion
     if 'meta' in row.keys():
@@ -118,10 +91,10 @@ def insert_row_and_get_id(database: Database, table_name, row: dict):
         return None
 
 
-def insert_data(database: Database, data_path, labeled_ids, tp_batch_threshold=10e4):
+def insert_data(database: Database, data_path, labeled_ids, insert_threshold=10e4):
     start_time = time.time()
     users_rows = process_users(path=data_path, labeled_ids=labeled_ids)
-    insert_batch(database=database, batch=copy.deepcopy(users_rows), table_name='User')
+    database.insert_batch(batch=copy.deepcopy(users_rows), table_name='User')
     num_users = len(users_rows)
     print(f"Inserted {num_users} users into User\n")
 
@@ -142,40 +115,41 @@ def insert_data(database: Database, data_path, labeled_ids, tp_batch_threshold=1
                 trackpoint = process_trackpoint(activity['id'], trackpoint_row)
                 trackpoint_buffer.append(trackpoint)
 
-            if len(trackpoint_buffer) > tp_batch_threshold:
+            num_activities, num_trackpoints = len(activity_buffer), len(trackpoint_buffer)
+
+            if num_activities + num_trackpoints > insert_threshold:
+                insert_time = time.time()
+                num_activities, num_trackpoints = len(activity_buffer), len(trackpoint_buffer)
+                print(f'\nInserting: {num_activities} activities and {num_trackpoints} trackpoints')
+
                 # Insert activities
-                num_activities = len(activity_buffer)
-                insert_batch(database=database, table_name='Activity', batch=list(activity_buffer))
+                database.insert_batch(table_name='Activity', batch=list(activity_buffer))
                 activity_buffer.clear()
 
                 # Insert trackpoints
-                num_trackpoints = len(trackpoint_buffer)
-                insert_batch(database=database, table_name='TrackPoint', batch=list(trackpoint_buffer))
+                database.insert_batch(table_name='TrackPoint', batch=list(trackpoint_buffer))
                 trackpoint_buffer.clear()
 
-                print(f'\tInserted approx: {num_activities} activities and {num_trackpoints} trackpoints\n')
+                print(f'\tInsertion time: {time_elapsed_str(insert_time)}\n'
+                      f'\tInserts per second: {int((num_trackpoints + num_activities) / (time.time() - insert_time))}\n')
 
-        print(f'Completed insertion of user {user_row["id"]} ({i} / {num_users})\n'
-              f'Number of trackpoints queued: {len(trackpoint_buffer)} \n'
-              f'Time elapsed: {time_elapsed_str(start_time)}\n')
+        print(f'\rUser {user_row["id"]} processed ({i} / {num_users}), Time elapsed: {time_elapsed_str(start_time)}',
+              end='')
 
-
-def time_elapsed_str(start_time):
-    elapsed = time.time() - start_time
-    minutes = round(elapsed / 60, 0)
-    seconds = round(elapsed % 60, 0)
-    return f'{minutes} minutes and {seconds} seconds.'
+    print(f'Insertion complete - Total time: {time_elapsed_str(start_time)}')
 
 
 def execute():
-    data_path = './dataset/dataset/Data'
-    labeled_ids = read_file_to_list('./dataset/dataset/labeled_ids.txt')
-    database = open_connection()
+    if __name__ == "__main__":
+        data_path = './dataset/dataset/Data'
+        labeled_ids = read_file_to_list('./dataset/dataset/labeled_ids.txt')
+        database = open_connection()
+        database.drop(['TrackPoint', 'Activity', 'User'], debug=False)
 
-    create_tables(database, debug=False)
-    insert_data(database, data_path, labeled_ids, tp_batch_threshold=650000)
+        create_tables(database, debug=False)
+        insert_data(database, data_path, labeled_ids, insert_threshold=325 * 10e2)
 
-    close_connection(database)
+        database.close_connection()
 
 
 # Execution
