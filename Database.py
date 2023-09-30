@@ -25,7 +25,6 @@ class Database:
         """
         query = f"CREATE TABLE IF NOT EXISTS {table_name}("
 
-        # Add attributes to the query
         for attribute in attributes:
             if attribute == attributes[-1]:
                 query += f'{attribute},\n'
