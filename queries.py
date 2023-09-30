@@ -124,8 +124,8 @@ def get_users_in_proximity(cursor):
 
     ### ----- MÅ ENDRES -----
     # Load Activities and Trackpoints data
-    activities_query = "SELECT * FROM Activity"
-    trackpoints_query = "SELECT * FROM TrackPoint"
+    activities_query = "SELECT * FROM Activity;"
+    trackpoints_query = "SELECT * FROM TrackPoint;"
 
     activities = pd.read_sql(execute_query(cursor, activities_query, 'all_activities'))
     trackpoints = pd.read_sql(execute_query(cursor, trackpoints_query, 'all_trackpoints'))
