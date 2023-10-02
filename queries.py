@@ -4,24 +4,91 @@ from shapely.geometry import Point
 from datetime import timedelta
 from sqlalchemy import create_engine
 
+def iterate_results(cursor):
+    tasks = [
+        {"description": "Task 1: How many users, activities and trackpoints are there in the dataset (after it is inserted into the database)?",
+         "methods": [get_user_count, get_activity_count, get_tp_count],
+         "labels": ['Total users:', 'Total activities:', 'Total trackpoints:']},
 
-def execute_query(cursor, query, label):
+        {"description": "Task 2: Find the average, maximum and minimum number of trackpoints per user.",
+        "methods": [get_avg_tp, get_max_tp, get_min_tp],
+        "labels": ['Average trackpoints:', 'Maximum trackpoints', 'Minimum trackpoints:']},
+
+        {"description": "Task 3: Find the top 15 users with the highest number of activities.",
+         "methods": [get_top_15_activities],
+         "labels": ['Highly active users:']},
+
+        {"description": "Task 4: Find all users who have taken a bus.",
+         "methods": [get_transportation_by_bus],
+         "labels": ['Bus-taking users:']},
+
+        {"description": "Task 5: List the top 10 users by their amount of different transportation modes.",
+         "methods": [get_distinct_transportation_modes],
+         "labels": ['Users by number of transportation modes:']},
+
+        {"description": "Task 6: Find activities that are registered multiple times. You should find the query even if it gives zero result.",
+         "methods": [get_duplicate_activities],
+         "labels": ['Duplicate activities:']},
+
+        {"description": "Task 7a: Find the number of users that have started an activity in one day and ended the activity the next day.",
+            "methods": [get_count_multiple_day_activities],
+            "labels": ['Users with activities spanning multiple days:']},
+
+        {"description": "Task 7b: List the transportation mode, user id and duration for these activities.",
+            "methods": [get_list_multiple_day_activities],
+            "labels": ['Details on activities spanning multiple days:']},
+
+        {"description": "Task 8: Find the number of users which have been close to each other in time and space. Close is defined as the same space (50 meters) and for the same half minute (30 seconds)",
+         "methods": [get_users_in_proximity],
+         "labels": ['Number of users in close proximity:']},
+
+        {"description": "Task 9: Find the top 15 users who have gained the most altitude meters. Output should be a table with (id, total meters gained per user). Remember that some altitude-values are invalid",
+            "methods": [get_top_altitude_gains],
+            "labels": ['Height-climbing users:']},
+
+        {"description": "Task 10: Find the users that have traveled the longest total distance in one day for each transportation mode.",
+            "methods": [longest_distance_per_transportation],
+            "labels": ['Height-climbing users:']},
+
+        {"description": "Task 11: Find all users who have invalid activities, and the number of invalid activities per user. An invalid activity is defined as an activity with consecutive trackpoints where the timestamps deviate with at least 5 minutes.",
+            "methods": [get_invalid_activities],
+            "labels": ['Invalid activities per user:']},
+
+        {
+            "description": "Task 12:  Find all users who have registered transportation_mode and their most used transportation_mode.",
+            "methods": [get_most_used_transportations],
+            "labels": ['Users with theirs most used transportation modes:']}
+    ]
+
+    for task in tasks:
+        print(f"{task['description']}\n Answer:")
+        for method in task['methods']:
+            result = method(cursor)
+            print(f"  {label}: {result}")
+        print("\n")  # Add a newline between different tasks for better readability.
+
+
+
+def execute_query(cursor, query):
     cursor.execute(query)
     result = cursor.fetchone()
-    return label[0] if result else 0
+    return result[0] if result else 0
 
+# TASK 1
 def get_user_count(cursor):
     query = "SELECT COUNT(*) AS user_count FROM User;"
-    return execute_query(cursor, query, 'user_count')
+    result = execute_query(cursor, query)
+    return result
 
 def get_activity_count(cursor):
     query ="SELECT COUNT(*) AS activity_count FROM Activity;"
-    return execute_query(cursor, query, 'activity_count')
+    return execute_query(cursor, query)
 
 def get_tp_count(cursor):
     query ="SELECT COUNT(*) AS tp_count FROM TrackPoint;"
-    return execute_query(cursor, query, 'tp_count')
+    return execute_query(cursor, query)
 
+# TASK 2
 def get_avg_tp(cursor):
     query = '''SELECT AVG(tp_count) AS avg_tp_per_user
                 FROM (
@@ -37,7 +104,7 @@ def get_avg_tp(cursor):
                     GROUP BY u.id
                 ) AS user_tp;'''
 
-    return execute_query(cursor, query, 'avg_tp')
+    return execute_query(cursor, query)
 
 def get_max_tp(cursor):
     query = '''SELECT MAX(tp_count) AS avg_tp_per_user
@@ -54,7 +121,7 @@ def get_max_tp(cursor):
                         GROUP BY u.id
                     ) AS user_tp;'''
 
-    return execute_query(cursor, query, 'max_tp')
+    return execute_query(cursor, query)
 
 def get_min_tip(cursor):
     query = '''SELECT MIN(tp_count) AS avg_tp_per_user
@@ -71,8 +138,9 @@ def get_min_tip(cursor):
                             GROUP BY u.id
                         ) AS user_tp;'''
 
-    return execute_query(cursor, query, 'min_tp')
+    return execute_query(cursor, query)
 
+# TASK 3
 def get_top_15_activities(cursor):
     query = '''SELECT u.id,
                     COUNT(a.id) AS number_of_activities
@@ -82,44 +150,48 @@ def get_top_15_activities(cursor):
                 GROUP BY u.id
                 ORDER BY number_of_activities DESC
                 LIMIT 15;'''
-    return execute_query(cursor, query, 'top_15_activities')
+    return execute_query(cursor, query)
 
+# TASK 4
 def get_transportation_by_bus(cursor):
     query = ''' SELECT DISTINCT user_id
                 FROM Activity
                 WHERE transportation_mode = 'bus';'''
-    return execute_query(cursor, query, 'transportation_by_bus')
+    return execute_query(cursor, query)
 
+# TASK 5
 def get_distinct_transportation_modes(cursor):
     query = '''SELECT user_id, COUNT(DISTINCT transportation_mode) AS transportation_modes
                 FROM Activity
                 GROUP BY user_id
                 ORDER BY transportation_modes DESC
                 LIMIT 10;'''
-    return execute_query(cursor, query, 'distinct_transportation_modes')
+    return execute_query(cursor, query)
 
-
+# TASK 6
 def get_duplicate_activities(cursor):
     query = '''SELECT user_id, a.id, COUNT(*) AS duplicates
                 FROM Activity a
                 GROUP BY user_id, a.id
                 HAVING COUNT(*) > 1;'''
 
-    return execute_query(cursor, query, 'distinct_duplicate_activities')
+    return execute_query(cursor, query)
 
-
+# TASK 7a
 def get_count_multiple_day_activities(cursor):
     query = '''SELECT COUNT(DISTINCT user_id) AS users_with_multiple_day_activities
                 FROM Activity
                 WHERE DATEDIFF(end_date_time, start_date_time) = 1;'''
-    return execute_query(cursor, query, 'count_multiple_day_activities')
+    return execute_query(cursor, query)
 
+# TASK 7b
 def get_list_multiple_day_activities(cursor):
     query = '''SELECT user_id, transportation_mode, TIMESTAMPDIFF(MINUTE, start_date_time, end_date_time) AS duration_in_minutes
                 FROM Activity
                 WHERE DATEDIFF(end_date_time, start_date_time) = 1;'''
-    return execute_query(cursor, query, 'list_multiple_day_activities')
+    return execute_query(cursor, query)
 
+# TASK 8
 def get_users_in_proximity(cursor):
 
     ### ----- MÅ ENDRES -----
@@ -127,8 +199,8 @@ def get_users_in_proximity(cursor):
     activities_query = "SELECT * FROM Activity;"
     trackpoints_query = "SELECT * FROM TrackPoint;"
 
-    activities = pd.read_sql(execute_query(cursor, activities_query, 'all_activities'))
-    trackpoints = pd.read_sql(execute_query(cursor, trackpoints_query, 'all_trackpoints'))
+    activities = pd.read_sql(execute_query(cursor, activities_query))
+    trackpoints = pd.read_sql(execute_query(cursor, trackpoints_query))
 
     # Convert Trackpoints to GeoDataFrame
     geometry = [Point(xy) for xy in zip(trackpoints['lon'], trackpoints['lat'])]
@@ -166,18 +238,24 @@ def get_users_in_proximity(cursor):
 
     return result_count
 
+# TASK 9
 def get_top_altitude_gains(cursor):
     # Define the SQL query
     query = '''SELECT a.user_id, tp.altitude
-                FROM TrackPoint tp
-                JOIN Activity a ON tp.activity_id = a.id;
-    '''
+                    FROM TrackPoint tp
+                    JOIN Activity a ON tp.activity_id = a.id;'''
 
-    # Read the SQL query into a DataFrame
-    df = pd.read_sql(execute_query(cursor, query, 'altitudes_per_user'))
+    # Fetch the result into a list of tuples
+    result = cursor.fetchall(execute_query(cursor, query))
+
+    # Convert the result to a DataFrame
+    df = pd.DataFrame(result, columns=['user_id', 'altitude'])
+
+    # Convert altitude from feet to meters
+    df['altitude'] = df['altitude'] * 0.3048  # 1 foot = 0.3048 meters
 
     # Filter out invalid altitude values
-    df = df[df['altitude'] != -777]
+    df = df[df['altitude'] != -777 * 0.3048]  # Convert -777 feet to meters
 
     # Calculate the altitude gained for each row
     df['altitude_gained'] = df.groupby('user_id')['altitude'].diff().clip(lower=0)
@@ -191,9 +269,12 @@ def get_top_altitude_gains(cursor):
     # Get the top 15 users who have gained the most altitude meters
     top_15_users = result_df.sort_values(by='total_meters_gained_per_user', ascending=False).head(15)
 
-    # Display the result
-    return print(top_15_users.to_string(index=False))
+    # Use tabulate to print the table
 
+    return print(tabulate(top_15_users, headers='keys', tablefmt='grid', showindex=False))
+
+
+# TASK 10
 def longest_distance_per_transportation(cursor):
 
     # Define the SQL query to fetch required fields
@@ -202,7 +283,7 @@ def longest_distance_per_transportation(cursor):
                 JOIN TrackPoint tp ON a.id = tp.activity_id;'''
 
     # Read the SQL query into a DataFrame
-    df = pd.read_sql(execute_query(cursor, query, 'distances_by_transport'))
+    df = pd.read_sql(execute_query(cursor, query))
 
     # Sort values by user_id, transportation_mode, date_days and latitude and longitude (assumed to be in that order)
     df.sort_values(by=['user_id', 'transportation_mode', 'latitude', 'longitude'], inplace=True)
@@ -231,6 +312,7 @@ def longest_distance_per_transportation(cursor):
     # Display the result
     return print(result_df)
 
+# TASK 11
 def get_invalid_activities(cursor):
     # Define the SQL query to fetch required fields
     query = '''SELECT a.user_id, tp.activity_id,tp.date_time
@@ -239,7 +321,7 @@ def get_invalid_activities(cursor):
                 ORDER BY a.user_id, tp.activity_id, tp.date_time;'''
 
     # Read the SQL query into a DataFrame
-    df = pd.read_sql(execute_query(cursor, query, 'activity_deviations'))
+    df = pd.read_sql(execute_query(cursor, query))
 
     # Convert date_time to datetime object
     df['date_time'] = pd.to_datetime(df['date_time'])
@@ -259,6 +341,7 @@ def get_invalid_activities(cursor):
     # Display the result
     return print(invalid_activities_count)
 
+#TASK 12
 def get_most_used_transportations(cursor):
     ### By using the CASE statement in the ORDER BY clause,
     ### we can establish a priority. In the event of a tie in the number of activities (mode_count), the CASE statement ensures that transportation modes are prioritized in the defined order.
@@ -332,4 +415,4 @@ def get_most_used_transportations(cursor):
                 ORDER BY u.id;'''
     """
 
-    return execute_query(cursor, query_1, 'most_used_transportations')
+    return execute_query(cursor, query_1)
