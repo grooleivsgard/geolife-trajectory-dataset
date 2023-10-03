@@ -147,7 +147,7 @@ def insert_data(database: Database, data_path, labeled_ids, insert_threshold=10e
     print(f'\nInsertion complete - Total time: {time_elapsed_str(start_time)}')
 
 
-def execute():
+def upload_data():
     """
     Execute the database operations.
     """
@@ -164,4 +164,4 @@ def execute():
 
 
 # Execution
-execute()
+upload_data()
