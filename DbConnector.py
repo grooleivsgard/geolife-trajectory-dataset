@@ -36,6 +36,9 @@ class DbConnector:
         print("You are connected to the database:", database_name)
         print("-----------------------------------------------\n")
 
+    def get_cursor(self):
+        return self.cursor
+
     def close_connection(self):
         self.cursor.close()
         self.db_connection.close()

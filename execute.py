@@ -1,9 +1,11 @@
 import time
 import copy
+import DbConnector
 from Database import Database
 import pandas as pd
 import mysql.connector
 from dataset import process_users, preprocess_activities, process_activity, process_trackpoint, read_file_to_list
+import queries
 
 
 def time_elapsed_str(start_time):
@@ -155,10 +157,13 @@ def execute():
         data_path = './dataset/dataset/Data'
         labeled_ids = read_file_to_list('./dataset/dataset/labeled_ids.txt')
         database = open_connection()
-        database.drop(['TrackPoint', 'Activity', 'User'], debug=False)
+        # database.drop(['TrackPoint', 'Activity', 'User'], debug=False)
 
-        create_tables(database, debug=False)
-        insert_data(database, data_path, labeled_ids, insert_threshold=325 * 10e2)
+        # create_tables(database, debug=False)
+        # insert_data(database, data_path, labeled_ids, insert_threshold=325 * 10e2)
+        connector = DbConnector.DbConnector()
+        cursor = connector.get_cursor()
+        queries.iterate_results(cursor, 9)
 
         database.close_connection()
 
