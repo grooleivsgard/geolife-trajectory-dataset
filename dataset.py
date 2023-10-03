@@ -89,7 +89,6 @@ def process_activity(user_row: dict, activity_row: dict) -> tuple:
         ]
 
         if not matching_transport.empty:
-            print("match found!")
             activity_row['transportation_mode'] = matching_transport['Transportation Mode'].iloc[0]
 
     return activity_row, trackpoints_df
