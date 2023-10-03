@@ -1,1 +1,1 @@
-# StoreDist_oppg2
+# Geolife Trajectory Dataset, assignment 2 in TDT4225
