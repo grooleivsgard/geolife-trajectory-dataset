@@ -142,14 +142,13 @@ def insert_data(database: Database, data_path, labeled_ids, insert_threshold=10e
             if num_activities + num_trackpoints > insert_threshold:
                 push_buffers_to_db(database, activity_buffer, trackpoint_buffer, num_activities, num_trackpoints)
 
-        print(
-            f'\rUser {user_row["id"]} processed ({i + 1} / {num_users}), Time elapsed: {time_elapsed_str(start_time)}',
+        print(f'\rUser {user_row["id"]} processed ({i + 1} / {num_users}), Time elapsed: {time_elapsed_str(start_time)}',
             end='')
 
     print(f'\nInsertion complete - Total time: {time_elapsed_str(start_time)}')
 
 
-def execute():
+def upload_data():
     """
     Execute the database operations.
     """
@@ -169,4 +168,4 @@ def execute():
 
 
 # Execution
-execute()
+upload_data()
