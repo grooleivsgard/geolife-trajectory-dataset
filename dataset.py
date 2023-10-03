@@ -69,7 +69,7 @@ def process_activity(user_row: dict, activity_row: dict) -> tuple:
     :return: A tuple containing the expanded activity data and trackpoints data frame.
     """
     columns = ['lat', 'lon', 'dep1', 'alt', 'date', 'date_str', 'time_str']
-    trackpoints_df = pd.read_table(activity_row['meta']['path'], skiprows=7, names=columns, delimiter=',')
+    trackpoints_df = pd.read_table(activity_row['meta']['path'], skiprows=6, names=columns, delimiter=',')
 
     if trackpoints_df.shape[0] > 2500:
         return None, None
@@ -82,13 +82,14 @@ def process_activity(user_row: dict, activity_row: dict) -> tuple:
         transportations['Start Time'] = pd.to_datetime(transportations['Start Time'])
         transportations['End Time'] = pd.to_datetime(transportations['End Time'])
 
-        time_tolerance = pd.Timedelta(seconds=1)
+        time_tolerance = pd.Timedelta(seconds=0)
         matching_transport = transportations[
             (transportations['Start Time'].between(activity_row['start_date_time'] - time_tolerance, activity_row['start_date_time'] + time_tolerance)) &
             (transportations['End Time'].between(activity_row['end_date_time'] - time_tolerance, activity_row['end_date_time'] + time_tolerance))
         ]
 
         if not matching_transport.empty:
+            print("match found!")
             activity_row['transportation_mode'] = matching_transport['Transportation Mode'].iloc[0]
 
     return activity_row, trackpoints_df
