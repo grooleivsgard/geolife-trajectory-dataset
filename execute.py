@@ -162,7 +162,7 @@ def upload_data():
         # insert_data(database, data_path, labeled_ids, insert_threshold=325 * 10e2)
         connector = DbConnector.DbConnector()
         cursor = connector.get_cursor()
-        queries.iterate_results(cursor, 9)
+        queries.iterate_results(cursor, 10)
 
         database.close_connection()
 
