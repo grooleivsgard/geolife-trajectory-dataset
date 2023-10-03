@@ -3,6 +3,30 @@ import geopandas as gpd
 from shapely.geometry import Point
 from datetime import timedelta
 from sqlalchemy import create_engine
+from haversine import haversine, Unit
+import time
+from execute import time_elapsed_str
+from rtree import index
+
+
+def format_and_print(label, result):
+    # If result is empty, return early
+    if not result:
+        print(f"  {label} None")
+        return
+
+    # Single value result
+    if isinstance(result[0], tuple) and len(result[0]) == 1:
+        print(f"  {label} {result[0][0]}")
+
+    # Multi-value result
+    elif isinstance(result[0], tuple):
+        for item in result:
+            print(f"  {label}: {' ,'.join(str(value) for value in item)}")
+
+    # Other types of results (though this shouldn't be the case based on the methods you've shown)
+    else:
+        print(f"  {label} {result}")
 
 
 def iterate_results(cursor, task_num=None):
@@ -25,7 +49,7 @@ def iterate_results(cursor, task_num=None):
         {
             "description": "Task 4: Find all users who have taken a bus.",
             "methods": [get_transportation_by_bus],
-            "labels": ['Bus-taking users:']},
+            "labels": ['Bus-taking user:']},
 
         {
             "description": "Task 5: List the top 10 users by their amount of different transportation modes.",
@@ -42,10 +66,10 @@ def iterate_results(cursor, task_num=None):
             "methods": [get_count_multiple_day_activities],
             "labels": ['Users with activities spanning multiple days:']},
 
-        {   # -- task 8
+        {  # -- task 8
             "description": "Task 7b: List the transportation mode, user id and duration for these activities.",
             "methods": [get_list_multiple_day_activities],
-            "labels": ['Details on activities spanning multiple days:']},
+            "labels": ['Multiple-day activity']},
 
         {
             "description": "Task 8: Find the number of users which have been close to each other in time and space. Close is defined as the same space (50 meters) and for the same half minute (30 seconds)",
@@ -87,22 +111,23 @@ def iterate_results(cursor, task_num=None):
         print(f"{task['description']}\n Answer:")
         for method_func, label in zip(task['methods'], task['labels']):
             result = method_func(cursor)
-            print(f"  {label}: {result}")
+            format_and_print(label, result)  # Call the modular formatting function
         print("\n")  # Add a newline between different tasks for better readability.
 
     return tasks_to_execute
 
 
-"""
-
-"""
-
 if __name__ == "__main__":
     execute()
 
 
-def execute_query(cursor, query):
-    cursor.execute(query)
+def execute_query(cursor, query, params=None):
+    cursor.execute(query, params)
+    return cursor.fetchall()
+
+
+def executemany_query(cursor, query, data):
+    cursor.executemany(query, data)
     return cursor.fetchall()
     # or  return cursor.fetchone()
 
@@ -231,78 +256,138 @@ def get_list_multiple_day_activities(cursor):
     return execute_query(cursor, query)
 
 
+# task 8 v2
 
-# TASK 8
-
-def get_close_activties(cursor):
 
 def get_users_in_proximity(cursor):
-    ### ----- MÅ ENDRES -----
+    start_time = time.time()
 
-    # Retrieve all data from Activity into a DF
-    activities_query = "SELECT * FROM Activity;"
-    activities_data = execute_query(cursor, activities_query)
-    activities = pd.DataFrame(activities_data, columns=[desc[0] for desc in cursor.description])
+    # 1. FILTER BY TIME
+    query_time = '''
+                SELECT 
+                    A1.id AS activity_id_1, 
+                    A2.id AS activity_id_2, 
+                    A1.user_id AS user_id_1, 
+                    A2.user_id AS user_id_2
+                FROM Activity AS A1
+                JOIN Activity AS A2 ON 
+                    A1.start_date_time <= A2.end_date_time + INTERVAL 30 SECOND
+                    AND A1.end_date_time >= A2.start_date_time - INTERVAL 30 SECOND
+                    AND A1.user_id != A2.user_id
+                    AND A1.id < A2.id;
+                '''
+    time_close_activities = execute_query(cursor, query_time)
 
-    overlapping_activities = []
-    for index, act in activities.iterrows():
-        time_filter = (
-            ((activities['start_date_time'] >= (act['start_date_time'] - timedelta(seconds=30))) &
-             (activities['start_date_time'] <= (act['end_date_time'] + timedelta(seconds=30)))) |
-            ((activities['end_date_time'] >= (act['start_date_time'] - timedelta(seconds=30))) &
-             (activities['end_date_time'] <= (act['end_date_time'] + timedelta(seconds=30))))
-        )
-        #Only compare different user id's
-        user_filter = activities['user_id'] != act['user_id']
-        overlapping = activities[time_filter & user_filter]
-        overlapping_activities.extend(overlapping['id'].tolist())
+    # 2. FETCH ALL TRACKPOINTS
+    unique_activity_ids = set()
+    for activity in time_close_activities:
+        unique_activity_ids.add(activity[0])
+        unique_activity_ids.add(activity[1])
 
-    #Remove duplicate Activity IDs
-    overlapping_activities = list(set(overlapping_activities))
-    overlapping_str_list = list(map(str, overlapping_activities))
+    placeholders = ', '.join(['%s'] * len(unique_activity_ids))
+    query_trackpoints = f"SELECT activity_id, lat, lon FROM TrackPoint WHERE activity_id IN ({placeholders});"
+    all_trackpoints = execute_query(cursor, query_trackpoints, tuple(unique_activity_ids))
 
-    #placeholder = ",".join(["%s"] * len(overlapping_activities))
-    overlapping_ids = ",".join(overlapping_str_list)
-    trackpoints_query = f"SELECT * FROM TrackPoint WHERE activity_id IN ({overlapping_ids});"
-    trackpoints_data = execute_query(cursor, trackpoints_query)
+    # Organize trackpoints by activity id
+    trackpoints_dict = {}
+    for activity_id, lat, lon in all_trackpoints:
+        if activity_id not in trackpoints_dict:
+            trackpoints_dict[activity_id] = []
+        trackpoints_dict[activity_id].append((lat, lon))
 
-    trackpoints = pd.DataFrame(trackpoints_data, columns=[desc[0] for desc in cursor.description])
+    # 3. SPATIAL FILTERING USING R-TREE
+    def spatially_close(tp1_list, tp2_list):
+        idx = index.Index()
+        for pos, (lat, lon) in enumerate(tp1_list):
+            idx.insert(pos, (lat, lon, lat, lon))
 
-    # Convert Trackpoints to GeoDataFrame
-    geometry = [Point(xy) for xy in zip(trackpoints['lon'], trackpoints['lat'])]
-    trackpoints_gdf = gpd.GeoDataFrame(trackpoints, geometry=geometry)
+        for lat, lon in tp2_list:
+            nearby = list(idx.intersection((lat - 0.0005, lon - 0.0005, lat + 0.0005, lon + 0.0005)))
+            for nearby_id in nearby:
+                if haversine(tp1_list[nearby_id], (lat, lon), unit=Unit.METERS) <= 50:
+                    return True
+        return False
 
-    # Empty list to hold results
-    results = []
+    # 4. FIND USERS IN PROXIMITY
+    close_users_set = set()
+    for activity_id_1, activity_id_2, user_id_1, user_id_2 in time_close_activities:
+        if activity_id_1 in trackpoints_dict and activity_id_2 in trackpoints_dict:
+            if spatially_close(trackpoints_dict[activity_id_1], trackpoints_dict[activity_id_2]):
+                close_users_set.add(user_id_1)
+                close_users_set.add(user_id_2)
 
-    for index, act in activities.iterrows():
-        # Filter Activities that are within 30 seconds of the current activity and different user_id
-        time_filter = (
-                ((activities['start_date_time'] >= (act['start_date_time'] - timedelta(seconds=30))) &
-                 (activities['start_date_time'] <= (act['end_date_time'] + timedelta(seconds=30)))) |
-                ((activities['end_date_time'] >= (act['start_date_time'] - timedelta(seconds=30))) &
-                 (activities['end_date_time'] <= (act['end_date_time'] + timedelta(seconds=30))))
-        )
-        user_filter = activities['user_id'] != act['user_id']
+    print(f'\rFinished. Time elapsed: {time_elapsed_str(start_time)}', end='')
+    return len(close_users_set)
 
-        # Get the trackpoints for the current activity
-        current_trackpoints = trackpoints_gdf[trackpoints_gdf['activity_id'] == act['id']]
 
-        for _, other_act in activities[time_filter & user_filter].iterrows():
-            # Get the trackpoints for the other activity
-            other_trackpoints = trackpoints_gdf[trackpoints_gdf['activity_id'] == other_act['id']]
+"""
+# TASK 8
 
-            for _, tp1 in current_trackpoints.iterrows():
-                for _, tp2 in other_trackpoints.iterrows():
-                    # If the distance is less than 0.05 km (50 meters) and user_id is different, save the result
-                    if tp1.geometry.distance(tp2.geometry) < 0.05 and act['user_id'] < other_act['user_id']:
-                        results.append({'user1': act['user_id'], 'user2': other_act['user_id']})
+def get_users_in_proximity(cursor):
+    start_time = time.time()
+    def filter_by_time(cursor):
+        # Retrieve activities within 30 seconds of eachother between different users.
+        query = '''
+                SELECT 
+                    A1.id AS activity_id_1, 
+                    A2.id AS activity_id_2, 
+                    A1.user_id AS user_id_1, 
+                    A2.user_id AS user_id_2
+                FROM Activity AS A1
+                JOIN Activity AS A2 ON 
+                    A1.start_date_time <= A2.end_date_time + INTERVAL 30 SECOND
+                    AND A1.end_date_time >= A2.start_date_time - INTERVAL 30 SECOND
+                    AND A1.user_id != A2.user_id
+                    AND A1.id < A2.id;
+                '''
 
-    # Convert the results to a DataFrame and count occurrences
-    result_df = pd.DataFrame(results)
-    result_count = result_df.groupby(['user1', 'user2']).size().reset_index(name='close_encounters')
+        # This list contains pairs of activities that are within 30 seconds of eachother
+        return execute_query(cursor, query)
 
-    return result_count
+    def filter_by_spatial_distance(trackpoints_1, trackpoints_2):
+        for tp1 in trackpoints_1:
+            for tp2 in trackpoints_2:
+                spatial_distance = haversine(tp1[:2], tp2[:2], unit=Unit.METERS)
+                if spatial_distance <= 50:
+                    return True
+        return False
+
+    print("Starting filter_by_time...")
+    time_close_activities = filter_by_time(cursor)
+    print(f"Found {len(time_close_activities)} time-close activities")
+    # Cache track points
+    trackpoints_cache = {}
+
+    print("Starting spatial filtering...")
+
+    def get_trackpoints(activity_id):
+        if activity_id not in trackpoints_cache:
+            query = f"SELECT lat, lon FROM TrackPoint WHERE activity_id = {activity_id};"
+            trackpoints_cache[activity_id] = execute_query(cursor, query)
+        return trackpoints_cache[activity_id]
+
+    # Only unique users
+    close_users_set = set()
+
+    # Filter based on spatial proximity
+    for activity_pair in time_close_activities:
+        activity_id_1 = activity_pair[0]
+        activity_id_2 = activity_pair[1]
+        user_id_1 = activity_pair[2]
+        user_id_2 = activity_pair[3]
+
+        trackpoints_1 = get_trackpoints(activity_id_1)
+        trackpoints_2 = get_trackpoints(activity_id_2)
+
+        if filter_by_spatial_distance(trackpoints_1, trackpoints_2):
+            close_users_set.add(user_id_1)
+            close_users_set.add(user_id_2)
+    # Return the count of unique users
+    print(f'\rFinished. Time elapsed: {time_elapsed_str(start_time)}',
+          end='')
+
+    return len(close_users_set)
+"""
 
 
 # TASK 9
@@ -408,6 +493,32 @@ def get_invalid_activities(cursor):
     # Filter invalid activities and count them by user_id
     invalid_activities_count = df[df['invalid']].groupby('user_id')['activity_id'].nunique().reset_index(
         name='invalid_activity_count')
+
+    # Every trackpoint row is compared with the row behind it using LAG on data_time value
+    # This query takes therefor a long time to execute
+    query = """
+                SELECT user_id, COUNT(DISTINCT activity_id) AS fault_activity_amount
+                FROM(
+                    SELECT MINUTE(TIMEDIFF(startTime, prev_time)) AS time_diff, user_id, activity_id, prev_a_id
+                        FROM(
+                            SELECT t1.date_time AS startTime,
+                                LAG(t1.date_time) OVER(ORDER BY date_time) AS prev_time,
+                                user_id, activity_id,
+                                LAG(t1.activity_id) OVER(ORDER BY date_time) AS prev_a_id
+                            FROM TrackPoint t1
+                            INNER JOIN Activity ON Activity.id = t1.activity_id
+                        ) AS time_table
+                    ) AS diff_table
+                WHERE time_diff > 5
+                AND activity_id = prev_a_id
+                GROUP BY user_id
+                ORDER BY user_id ASC
+            """
+
+    res = self.execute_query(query)
+    print("user_id  invalid_activities\n")
+    for row in res:
+        print("{} {:>23}".format(row[0], row[1]))
 
     # Display the result
     return print(invalid_activities_count)
