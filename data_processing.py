@@ -74,8 +74,10 @@ def process_activity(user_row: dict, activity_row: dict) -> tuple:
     if trackpoints_df.shape[0] > 2500:
         return None, None
 
-    activity_row['start_date_time'] = pd.to_datetime(trackpoints_df['date_str'].iloc[0] + " " + trackpoints_df['time_str'].iloc[0])
-    activity_row['end_date_time'] = pd.to_datetime(trackpoints_df['date_str'].iloc[-1] + " " + trackpoints_df['time_str'].iloc[-1])
+    activity_row['start_date_time'] = pd.to_datetime(
+        trackpoints_df['date_str'].iloc[0] + " " + trackpoints_df['time_str'].iloc[0])
+    activity_row['end_date_time'] = pd.to_datetime(
+        trackpoints_df['date_str'].iloc[-1] + " " + trackpoints_df['time_str'].iloc[-1])
 
     if user_row['has_labels']:
         transportations = pd.read_table(user_row['meta']['path'] + "/labels.txt")
@@ -84,9 +86,11 @@ def process_activity(user_row: dict, activity_row: dict) -> tuple:
 
         time_tolerance = pd.Timedelta(seconds=0)
         matching_transport = transportations[
-            (transportations['Start Time'].between(activity_row['start_date_time'] - time_tolerance, activity_row['start_date_time'] + time_tolerance)) &
-            (transportations['End Time'].between(activity_row['end_date_time'] - time_tolerance, activity_row['end_date_time'] + time_tolerance))
-        ]
+            (transportations['Start Time'].between(activity_row['start_date_time'] - time_tolerance,
+                                                   activity_row['start_date_time'] + time_tolerance)) &
+            (transportations['End Time'].between(activity_row['end_date_time'] - time_tolerance,
+                                                 activity_row['end_date_time'] + time_tolerance))
+            ]
 
         if not matching_transport.empty:
             activity_row['transportation_mode'] = matching_transport['Transportation Mode'].iloc[0]

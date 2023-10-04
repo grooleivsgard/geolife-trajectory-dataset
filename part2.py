@@ -6,7 +6,6 @@ from shapely.geometry import Point
 from datetime import timedelta
 from sqlalchemy import create_engine
 from haversine import haversine, Unit
-import time
 from execute import time_elapsed_str
 from rtree import index
 

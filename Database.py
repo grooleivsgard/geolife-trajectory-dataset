@@ -1,7 +1,51 @@
-from DbConnector import DbConnector
 from tabulate import tabulate
 import pandas as pd
-import mysql.connector
+import mysql.connector as mysql
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+class DbConnector:
+    """
+    Connects to the MySQL server on the Ubuntu virtual machine.
+    Connector needs HOST, DATABASE, USER and PASSWORD to connect,
+    while PORT is optional and should be 3306.
+
+    Example:
+    HOST = "tdt4225-00.idi.ntnu.no" // Your server IP address/domain name
+    DATABASE = "testdb" // Database name, if you just want to connect to MySQL server, leave it empty
+    USER = "testuser" // This is the user you created and added privileges for
+    PASSWORD = "test123" // The password you set for said user
+    """
+
+    def __init__(self,
+                 HOST='tdt4225-34.idi.ntnu.no',
+                 DATABASE='geolife',
+                 USER=os.getenv('DB_USER'),
+                 PASSWORD=os.getenv('DB_PASSWORD')):
+        try:
+            self.db_connection = mysql.connect(host=HOST, database=DATABASE, user=USER, password=PASSWORD, port=3306)
+        except Exception as e:
+            print("ERROR: Failed to connect to db:", e)
+
+        self.cursor = self.db_connection.cursor()
+
+        print("Connected to:", self.db_connection.get_server_info())
+        self.cursor.execute("select database();")
+        database_name = self.cursor.fetchone()
+        print("You are connected to the database:", database_name)
+        print("-----------------------------------------------\n")
+
+    def get_cursor(self):
+        return self.cursor
+
+    def close_connection(self):
+        self.cursor.close()
+        self.db_connection.close()
+        print("\n-----------------------------------------------")
+        print("Connection to %s is closed" % self.db_connection.get_server_info())
 
 
 class Database:
@@ -9,9 +53,12 @@ class Database:
         """
         Initializes the Database object by establishing a database connection and creating a cursor.
         """
-        self.connection = DbConnector()
-        self.db_connection = self.connection.db_connection
-        self.cursor = self.connection.cursor
+        try:
+            self.connection = DbConnector()
+            self.db_connection = self.connection.db_connection
+            self.cursor = self.connection.cursor
+        except Exception as e:
+            print("ERROR: Failed to use database:", e)
 
     def create_table(self, table_name: str, attributes: list, primary_key: str, foreign: dict = None, debug=False):
         """
@@ -85,7 +132,7 @@ class Database:
 
             self.cursor.executemany(query, data)
             self.db_connection.commit()
-        except mysql.connector.Error as e:
+        except mysql.Error as e:
             print(f"An error occurred: {e}")
             self.db_connection.rollback()
 
