@@ -4,6 +4,7 @@ from Database import Database
 import pandas as pd
 import mysql.connector
 from dataset import process_users, preprocess_activities, process_activity, process_trackpoint, read_file_to_list
+from queries import get_top_altitude_gains, print_most_used_transportations, print_invalid_activities
 
 
 def time_elapsed_str(start_time):
@@ -62,8 +63,7 @@ def create_tables(database: Database, debug=False):
     trackpoint = {
         'name': 'TrackPoint',
         'attributes': ['id INT UNSIGNED NOT NULL AUTO_INCREMENT', 'activity_id BIGINT UNSIGNED NOT NULL', 'lat DOUBLE',
-                       'lon DOUBLE',
-                       'altitude INT', 'date_days DOUBLE', 'date_time DATETIME'],
+                       'lon DOUBLE', 'altitude INT', 'date_days DOUBLE', 'date_time DATETIME'],
         'primary': "id",
         'foreign': {
             'key': 'activity_id',
@@ -140,7 +140,8 @@ def insert_data(database: Database, data_path, labeled_ids, insert_threshold=10e
             if num_activities + num_trackpoints > insert_threshold:
                 push_buffers_to_db(database, activity_buffer, trackpoint_buffer, num_activities, num_trackpoints)
 
-        print(f'\rUser {user_row["id"]} processed ({i + 1} / {num_users}), Time elapsed: {time_elapsed_str(start_time)}',
+        print(
+            f'\rUser {user_row["id"]} processed ({i + 1} / {num_users}), Time elapsed: {time_elapsed_str(start_time)}',
             end='')
 
     print(f'\nInsertion complete - Total time: {time_elapsed_str(start_time)}')
@@ -163,4 +164,15 @@ def upload_data():
 
 
 # Execution
-upload_data()
+database = open_connection()
+
+# Task 9
+get_top_altitude_gains(database.cursor)
+
+# Task 11
+get_invalid_activities(database.cursor)
+
+# Task 12
+get_most_used_transportations(database.cursor)
+
+database.close_connection()

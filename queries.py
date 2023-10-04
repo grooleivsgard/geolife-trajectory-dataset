@@ -1,18 +1,22 @@
 import pandas as pd
 import geopandas as gpd
+import time
+from tabulate import tabulate
 from shapely.geometry import Point
 from datetime import timedelta
 from sqlalchemy import create_engine
 
+
 def iterate_results(cursor):
     tasks = [
-        {"description": "Task 1: How many users, activities and trackpoints are there in the dataset (after it is inserted into the database)?",
-         "methods": [get_user_count, get_activity_count, get_tp_count],
-         "labels": ['Total users:', 'Total activities:', 'Total trackpoints:']},
+        {
+            "description": "Task 1: How many users, activities and trackpoints are there in the dataset (after it is inserted into the database)?",
+            "methods": [get_user_count, get_activity_count, get_tp_count],
+            "labels": ['Total users:', 'Total activities:', 'Total trackpoints:']},
 
         {"description": "Task 2: Find the average, maximum and minimum number of trackpoints per user.",
-        "methods": [get_avg_tp, get_max_tp, get_min_tp],
-        "labels": ['Average trackpoints:', 'Maximum trackpoints', 'Minimum trackpoints:']},
+         "methods": [get_avg_tp, get_max_tp, get_min_tp],
+         "labels": ['Average trackpoints:', 'Maximum trackpoints', 'Minimum trackpoints:']},
 
         {"description": "Task 3: Find the top 15 users with the highest number of activities.",
          "methods": [get_top_15_activities],
@@ -26,31 +30,37 @@ def iterate_results(cursor):
          "methods": [get_distinct_transportation_modes],
          "labels": ['Users by number of transportation modes:']},
 
-        {"description": "Task 6: Find activities that are registered multiple times. You should find the query even if it gives zero result.",
-         "methods": [get_duplicate_activities],
-         "labels": ['Duplicate activities:']},
+        {
+            "description": "Task 6: Find activities that are registered multiple times. You should find the query even if it gives zero result.",
+            "methods": [get_duplicate_activities],
+            "labels": ['Duplicate activities:']},
 
-        {"description": "Task 7a: Find the number of users that have started an activity in one day and ended the activity the next day.",
+        {
+            "description": "Task 7a: Find the number of users that have started an activity in one day and ended the activity the next day.",
             "methods": [get_count_multiple_day_activities],
             "labels": ['Users with activities spanning multiple days:']},
 
         {"description": "Task 7b: List the transportation mode, user id and duration for these activities.",
-            "methods": [get_list_multiple_day_activities],
-            "labels": ['Details on activities spanning multiple days:']},
+         "methods": [get_list_multiple_day_activities],
+         "labels": ['Details on activities spanning multiple days:']},
 
-        {"description": "Task 8: Find the number of users which have been close to each other in time and space. Close is defined as the same space (50 meters) and for the same half minute (30 seconds)",
-         "methods": [get_users_in_proximity],
-         "labels": ['Number of users in close proximity:']},
+        {
+            "description": "Task 8: Find the number of users which have been close to each other in time and space. Close is defined as the same space (50 meters) and for the same half minute (30 seconds)",
+            "methods": [get_users_in_proximity],
+            "labels": ['Number of users in close proximity:']},
 
-        {"description": "Task 9: Find the top 15 users who have gained the most altitude meters. Output should be a table with (id, total meters gained per user). Remember that some altitude-values are invalid",
+        {
+            "description": "Task 9: Find the top 15 users who have gained the most altitude meters. Output should be a table with (id, total meters gained per user). Remember that some altitude-values are invalid",
             "methods": [get_top_altitude_gains],
             "labels": ['Height-climbing users:']},
 
-        {"description": "Task 10: Find the users that have traveled the longest total distance in one day for each transportation mode.",
+        {
+            "description": "Task 10: Find the users that have traveled the longest total distance in one day for each transportation mode.",
             "methods": [longest_distance_per_transportation],
             "labels": ['Height-climbing users:']},
 
-        {"description": "Task 11: Find all users who have invalid activities, and the number of invalid activities per user. An invalid activity is defined as an activity with consecutive trackpoints where the timestamps deviate with at least 5 minutes.",
+        {
+            "description": "Task 11: Find all users who have invalid activities, and the number of invalid activities per user. An invalid activity is defined as an activity with consecutive trackpoints where the timestamps deviate with at least 5 minutes.",
             "methods": [get_invalid_activities],
             "labels": ['Invalid activities per user:']},
 
@@ -68,11 +78,18 @@ def iterate_results(cursor):
         print("\n")  # Add a newline between different tasks for better readability.
 
 
-
 def execute_query(cursor, query):
     cursor.execute(query)
     result = cursor.fetchone()
     return result[0] if result else 0
+
+
+def execute_and_printall(cursor, query: str, columns: list[str]):
+    cursor.execute(query)
+    result = cursor.fetchall()
+    df = pd.DataFrame(result, columns=columns)
+    print(tabulate(df, headers='keys', tablefmt='grid', showindex=False))
+
 
 # TASK 1
 def get_user_count(cursor):
@@ -80,13 +97,16 @@ def get_user_count(cursor):
     result = execute_query(cursor, query)
     return result
 
+
 def get_activity_count(cursor):
-    query ="SELECT COUNT(*) AS activity_count FROM Activity;"
+    query = "SELECT COUNT(*) AS activity_count FROM Activity;"
     return execute_query(cursor, query)
 
+
 def get_tp_count(cursor):
-    query ="SELECT COUNT(*) AS tp_count FROM TrackPoint;"
+    query = "SELECT COUNT(*) AS tp_count FROM TrackPoint;"
     return execute_query(cursor, query)
+
 
 # TASK 2
 def get_avg_tp(cursor):
@@ -106,6 +126,7 @@ def get_avg_tp(cursor):
 
     return execute_query(cursor, query)
 
+
 def get_max_tp(cursor):
     query = '''SELECT MAX(tp_count) AS avg_tp_per_user
                     FROM (
@@ -122,6 +143,7 @@ def get_max_tp(cursor):
                     ) AS user_tp;'''
 
     return execute_query(cursor, query)
+
 
 def get_min_tip(cursor):
     query = '''SELECT MIN(tp_count) AS avg_tp_per_user
@@ -140,6 +162,7 @@ def get_min_tip(cursor):
 
     return execute_query(cursor, query)
 
+
 # TASK 3
 def get_top_15_activities(cursor):
     query = '''SELECT u.id,
@@ -152,12 +175,14 @@ def get_top_15_activities(cursor):
                 LIMIT 15;'''
     return execute_query(cursor, query)
 
+
 # TASK 4
 def get_transportation_by_bus(cursor):
     query = ''' SELECT DISTINCT user_id
                 FROM Activity
                 WHERE transportation_mode = 'bus';'''
     return execute_query(cursor, query)
+
 
 # TASK 5
 def get_distinct_transportation_modes(cursor):
@@ -168,6 +193,7 @@ def get_distinct_transportation_modes(cursor):
                 LIMIT 10;'''
     return execute_query(cursor, query)
 
+
 # TASK 6
 def get_duplicate_activities(cursor):
     query = '''SELECT user_id, a.id, COUNT(*) AS duplicates
@@ -177,12 +203,14 @@ def get_duplicate_activities(cursor):
 
     return execute_query(cursor, query)
 
+
 # TASK 7a
 def get_count_multiple_day_activities(cursor):
     query = '''SELECT COUNT(DISTINCT user_id) AS users_with_multiple_day_activities
                 FROM Activity
                 WHERE DATEDIFF(end_date_time, start_date_time) = 1;'''
     return execute_query(cursor, query)
+
 
 # TASK 7b
 def get_list_multiple_day_activities(cursor):
@@ -191,9 +219,9 @@ def get_list_multiple_day_activities(cursor):
                 WHERE DATEDIFF(end_date_time, start_date_time) = 1;'''
     return execute_query(cursor, query)
 
+
 # TASK 8
 def get_users_in_proximity(cursor):
-
     ### ----- MÅ ENDRES -----
     # Load Activities and Trackpoints data
     activities_query = "SELECT * FROM Activity;"
@@ -238,45 +266,38 @@ def get_users_in_proximity(cursor):
 
     return result_count
 
+
 # TASK 9
-def get_top_altitude_gains(cursor):
+def print_top_altitude_gains(cursor):
+    """
+    Ensures differences between last trackpoint of previous activity and first track point of current activity is added.
+    :param cursor:
+    :return:
+    """
     # Define the SQL query
-    query = '''SELECT a.user_id, tp.altitude
-                    FROM TrackPoint tp
-                    JOIN Activity a ON tp.activity_id = a.id;'''
+    query = '''WITH CurrentAndPreviousAltitudes AS (
+    SELECT activity.user_id,
+           trackpoint.altitude AS current_altitude,
+           LAG(trackpoint.altitude) OVER(
+               PARTITION BY trackpoint.activity_id ORDER BY trackpoint.date_time) AS previous_altitude
+    FROM TrackPoint trackpoint
+    JOIN Activity activity ON trackpoint.activity_id = activity.id
+    WHERE trackpoint.altitude IS NOT NULL)   
 
-    # Fetch the result into a list of tuples
-    result = cursor.fetchall(execute_query(cursor, query))
+    SELECT user_id AS id,
+        ROUND(SUM(IF(current_altitude > previous_altitude, current_altitude - previous_altitude, 0)) * 0.3048)
+            AS total_meters_gained
+    FROM CurrentAndPreviousAltitudes
+    WHERE previous_altitude IS NOT NULL
+    GROUP BY user_id
+    ORDER BY total_meters_gained DESC
+    LIMIT 15;'''
 
-    # Convert the result to a DataFrame
-    df = pd.DataFrame(result, columns=['user_id', 'altitude'])
-
-    # Convert altitude from feet to meters
-    df['altitude'] = df['altitude'] * 0.3048  # 1 foot = 0.3048 meters
-
-    # Filter out invalid altitude values
-    df = df[df['altitude'] != -777 * 0.3048]  # Convert -777 feet to meters
-
-    # Calculate the altitude gained for each row
-    df['altitude_gained'] = df.groupby('user_id')['altitude'].diff().clip(lower=0)
-
-    # Sum the altitude gained for each user
-    result_df = df.groupby('user_id')['altitude_gained'].sum().reset_index()
-
-    # Rename columns
-    result_df.columns = ['id', 'total_meters_gained_per_user']
-
-    # Get the top 15 users who have gained the most altitude meters
-    top_15_users = result_df.sort_values(by='total_meters_gained_per_user', ascending=False).head(15)
-
-    # Use tabulate to print the table
-
-    return print(tabulate(top_15_users, headers='keys', tablefmt='grid', showindex=False))
+    execute_and_printall(cursor, query, columns=['User_id', 'Altitude Gained'])
 
 
 # TASK 10
 def longest_distance_per_transportation(cursor):
-
     # Define the SQL query to fetch required fields
     query = '''SELECT a.user_id, a.transportation_mode, tp.lat, tp.lon
                 FROM Activity a
@@ -298,7 +319,8 @@ def longest_distance_per_transportation(cursor):
         return total_distance
 
     # Group by user_id, transportation_mode, and date_days and apply the distance function
-    df['total_distance'] = df.groupby(['user_id', 'transportation_mode']).apply(calculate_distance).reset_index(level=[0,1,2], drop=True)
+    df['total_distance'] = df.groupby(['user_id', 'transportation_mode']).apply(calculate_distance).reset_index(
+        level=[0, 1, 2], drop=True)
 
     # Drop duplicates
     df.drop_duplicates(subset=['user_id', 'transportation_mode'], inplace=True)
@@ -307,10 +329,12 @@ def longest_distance_per_transportation(cursor):
     result_df = df.loc[df.groupby(['transportation_mode'])['total_distance'].idxmax()]
 
     # Select required columns and sort
-    result_df = result_df[['user_id', 'transportation_mode','total_distance']].sort_values(by=['transportation_mode', 'date_days', 'total_distance'], ascending=[True, True, False])
+    result_df = result_df[['user_id', 'transportation_mode', 'total_distance']].sort_values(
+        by=['transportation_mode', 'date_days', 'total_distance'], ascending=[True, True, False])
 
     # Display the result
     return print(result_df)
+
 
 # TASK 11
 def get_invalid_activities(cursor):
@@ -341,78 +365,55 @@ def get_invalid_activities(cursor):
     # Display the result
     return print(invalid_activities_count)
 
-#TASK 12
-def get_most_used_transportations(cursor):
-    ### By using the CASE statement in the ORDER BY clause,
-    ### we can establish a priority. In the event of a tie in the number of activities (mode_count), the CASE statement ensures that transportation modes are prioritized in the defined order.
 
-    # Denne gir ikke alle brukere med has_labels = true,
-    # men må få testet opp mot DB med verdier i transportation_mode for å finne ut av hvor feilen ligger
-    query_1 = '''SELECT user_id,transportation_mode
-                FROM (
-                    SELECT user_id,
-                           transportation_mode,
-                           ROW_NUMBER() OVER(PARTITION BY user_id ORDER BY mode_count DESC, 
-                                             CASE transportation_mode
-                                                  WHEN 'Walk' THEN 1
-                                                  WHEN 'Bike' THEN 2
-                                                  WHEN 'Bus' THEN 3
-                                                  WHEN 'Car & taxi' THEN 4
-                                                  WHEN 'Train' THEN 5
-                                                  WHEN 'Airplane' THEN 6
-                                                  WHEN 'Other' THEN 7
-                                                  ELSE 8
-                                             END ASC) as ranking
-                    FROM (
-                        SELECT a.user_id, 
-                               a.transportation_mode, 
-                               COUNT(*) as mode_count
-                        FROM Activity a
-                        JOIN User u ON a.user_id = u.id
-                        WHERE transportation_mode IS NOT NULL
-                          AND u.has_labels = TRUE
-                        GROUP BY a.user_id, a.transportation_mode
-                    ) as mode_counts
-                ) as ranked_modes
-                WHERE ranking = 1
-                ORDER BY user_id;'''
+def print_invalid_activities(cursor):
+    query = """
+    WITH TrackpointDifferences AS (
+    SELECT trackpoint.activity_id,
+           TIMESTAMPDIFF(MINUTE,
+                         LAG(trackpoint.date_time) 
+                            OVER(PARTITION BY trackpoint.activity_id ORDER BY trackpoint.date_time),
+                         trackpoint.date_time) AS time_difference
+    FROM TrackPoint trackpoint),
+    
+    InvalidActivity AS (
+        SELECT activity_id
+        FROM TrackpointDifferences
+        WHERE time_difference >= 5
+        GROUP BY activity_id
+    )
+    
+    SELECT activity.user_id, COUNT(DISTINCT invalid_activity.activity_id) AS invalid_activity_count
+    FROM InvalidActivity invalid_activity
+    JOIN Activity activity ON invalid_activity.activity_id = activity.id
+    GROUP BY activity.user_id
+    ORDER BY activity.user_id;"""
+
+    execute_and_printall(cursor, query, columns=['User ID', 'Invalid Activities'])
 
 
-                #### ---- evt denne:
-    """
-    query_2 = '''SELECT u.id as user_id,
-                       COALESCE(ranked_modes.transportation_mode, 'No Activity') as transportation_mode
-                FROM User u
-                LEFT JOIN (
-                    SELECT user_id,
-                           transportation_mode
-                    FROM (
-                        SELECT user_id,
-                               transportation_mode,
-                               ROW_NUMBER() OVER(PARTITION BY user_id ORDER BY mode_count DESC, 
-                                                 CASE transportation_mode
-                                                      WHEN 'Walk' THEN 1
-                                                      WHEN 'Bike' THEN 2
-                                                      WHEN 'Bus' THEN 3
-                                                      WHEN 'Car & taxi' THEN 4
-                                                      WHEN 'Train' THEN 5
-                                                      WHEN 'Airplane' THEN 6
-                                                      WHEN 'Other' THEN 7
-                                                      ELSE 8
-                                                 END ASC) as ranking
-                        FROM (
-                            SELECT a.user_id, 
-                                   a.transportation_mode, 
-                                   COUNT(*) as mode_count
-                            FROM Activity a
-                            WHERE a.transportation_mode IS NOT NULL
-                            GROUP BY a.user_id, a.transportation_mode
-                        ) as mode_counts
-                    ) as ranked_modes
-                    WHERE ranking = 1
-                ) as ranked_modes ON u.id = ranked_modes.user_id
-                WHERE u.has_labels = true
-                ORDER BY u.id;'''
-    """
+# TASK 12
+def print_most_used_transportations(cursor):
+    query = '''
+    WITH UserTransportModeCounts AS (
+    SELECT user.id as user_id, activity.transportation_mode AS transportation_mode, COUNT(*) AS amount
+    FROM User user
+    JOIN Activity activity on user.id = activity.user_id
+    WHERE user.has_labels IS NOT NULL AND activity.transportation_mode IS NOT NULL
+    GROUP BY user.id, activity.transportation_mode
+    ),
 
-    return execute_query(cursor, query_1)
+    RankedTransportationMode AS (
+        SELECT user_id,
+               transportation_mode AS most_used_transportation_mode,
+               amount,
+               ROW_NUMBER() OVER(PARTITION BY user_id ORDER BY amount DESC, transportation_mode) AS rn
+        FROM UserTransportModeCounts
+    )
+    
+    SELECT user_id, most_used_transportation_mode, amount
+    FROM RankedTransportationMode
+    WHERE rn = 1
+    ORDER BY user_id;'''
+
+    execute_and_printall(cursor, query, columns=['User ID', 'Most Used Transportation Mode', 'Amount'])
