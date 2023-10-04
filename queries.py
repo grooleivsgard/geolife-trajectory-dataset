@@ -9,62 +9,42 @@ from execute import time_elapsed_str
 from rtree import index
 
 
-def format_and_print(label, result):
-    # If result is empty, return early
-    if not result:
-        print(f"  {label} None")
-        return
-
-    # Single value result
-    if isinstance(result[0], tuple) and len(result[0]) == 1:
-        print(f"  {label} {result[0][0]}")
-
-    # Multi-value result
-    elif isinstance(result[0], tuple):
-        for item in result:
-            print(f"  {label}: {' ,'.join(str(value) for value in item)}")
-
-    # Other types of results (though this shouldn't be the case based on the methods you've shown)
-    else:
-        print(f"  {label} {result}")
-
-
 def iterate_results(cursor, task_num=None):
     tasks = [
         {
             "description": "Task 1: How many users, activities and trackpoints are there in the dataset (after it is inserted into the database)?",
             "methods": [get_user_count, get_activity_count, get_tp_count],
-            "labels": ['Total users:', 'Total activities:', 'Total trackpoints:']},
+            "labels": ['Total users', 'Total activities', 'Total trackpoints']},
 
         {
             "description": "Task 2: Find the average, maximum and minimum number of trackpoints per user.",
             "methods": [get_avg_tp, get_max_tp, get_min_tp],
-            "labels": ['Average trackpoints:', 'Maximum trackpoints', 'Minimum trackpoints:']},
+            "labels": ['Average trackpoints', 'Maximum trackpoints', 'Minimum trackpoint:']},
 
         {
             "description": "Task 3: Find the top 15 users with the highest number of activities.",
             "methods": [get_top_15_activities],
-            "labels": ['Highly active users:']},
+            "labels": ['Highly active user']},
 
         {
             "description": "Task 4: Find all users who have taken a bus.",
             "methods": [get_transportation_by_bus],
-            "labels": ['Bus-taking user:']},
+            "labels": ['Bus-taking user']},
 
         {
             "description": "Task 5: List the top 10 users by their amount of different transportation modes.",
             "methods": [get_distinct_transportation_modes],
-            "labels": ['Users by number of transportation modes:']},
+            "labels": ['Users by number of transportation modes']},
 
         {
             "description": "Task 6: Find activities that are registered multiple times. You should find the query even if it gives zero result.",
             "methods": [get_duplicate_activities],
-            "labels": ['Duplicate activities:']},
+            "labels": ['Duplicate activities']},
 
         {
             "description": "Task 7a: Find the number of users that have started an activity in one day and ended the activity the next day.",
             "methods": [get_count_multiple_day_activities],
-            "labels": ['Users with activities spanning multiple days:']},
+            "labels": ['Users with activities spanning multiple days']},
 
         {  # -- task 8
             "description": "Task 7b: List the transportation mode, user id and duration for these activities.",
@@ -74,27 +54,27 @@ def iterate_results(cursor, task_num=None):
         {
             "description": "Task 8: Find the number of users which have been close to each other in time and space. Close is defined as the same space (50 meters) and for the same half minute (30 seconds)",
             "methods": [get_users_in_proximity],
-            "labels": ['Number of users in close proximity:']},
+            "labels": ['Number of users in close proximity']},
 
         {
             "description": "Task 9: Find the top 15 users who have gained the most altitude meters. Output should be a table with (id, total meters gained per user). Remember that some altitude-values are invalid",
             "methods": [get_top_altitude_gains],
-            "labels": ['Height-climbing users:']},
+            "labels": ['Height-climbing users']},
 
         {
             "description": "Task 10: Find the users that have traveled the longest total distance in one day for each transportation mode.",
             "methods": [longest_distance_per_transportation],
-            "labels": ['Users with longest distance per transportation mode:']},
+            "labels": ['Users with longest distance per transportation mode']},
 
         {
             "description": "Task 11: Find all users who have invalid activities, and the number of invalid activities per user. An invalid activity is defined as an activity with consecutive trackpoints where the timestamps deviate with at least 5 minutes.",
             "methods": [get_invalid_activities],
-            "labels": ['Invalid activities per user:']},
+            "labels": ['Invalid activities per user']},
 
         {
             "description": "Task 12:  Find all users who have registered transportation_mode and their most used transportation_mode.",
             "methods": [get_most_used_transportations],
-            "labels": ['Users with their most used transportation modes:']}
+            "labels": ['Users with their most used transportation modes']}
 
     ]
 
@@ -109,30 +89,42 @@ def iterate_results(cursor, task_num=None):
 
     for task in tasks_to_execute:
         print(f"{task['description']}\n Answer:")
-        for method_func, label in zip(task['methods'], task['labels']):
-            result = method_func(cursor)
-            format_and_print(label, result)  # Call the modular formatting function
+        for method, label in zip(task['methods'], task['labels']):
+            result = method(cursor)
+            format_and_print(label, result)
         print("\n")  # Add a newline between different tasks for better readability.
 
-    return tasks_to_execute
+
+def format_and_print(label, result):
+    # If result is a scalar (not list or tuple)
+    if not isinstance(result, (list, tuple)):
+        print(f"  {label} {result}")
+        return
+
+    # If result is a list or tuple
+    for item in result:
+        # If item is a tuple, print its values separated by commas
+        if isinstance(item, tuple):
+            print(f"  {label}: {' ,'.join(map(str, item))}")
+        # If item is a scalar, print it directly
+        else:
+            print(f"  {label} {item}")
+
+
+def execute_query(cursor, query, params=None):
+    try:
+        cursor.execute(query, params)
+        return cursor.fetchall()
+    except mysql.connector.Error as err:
+        print(f"Error: {err}")
+        return None
 
 
 if __name__ == "__main__":
     execute()
 
 
-def execute_query(cursor, query, params=None):
-    cursor.execute(query, params)
-    return cursor.fetchall()
-
-
-def executemany_query(cursor, query, data):
-    cursor.executemany(query, data)
-    return cursor.fetchall()
-    # or  return cursor.fetchone()
-
-
-# TASK 1 - OK
+# TASK 1
 def get_user_count(cursor):
     query = "SELECT COUNT(*) AS user_count FROM User;"
     return execute_query(cursor, query)
@@ -253,7 +245,8 @@ def get_list_multiple_day_activities(cursor):
                 FROM Activity
                 WHERE DATEDIFF(end_date_time, start_date_time) = 1
                 ;'''
-    return execute_query(cursor, query)
+    result = execute_query(cursor, query)
+    return len(result)
 
 
 # task 8 v2
