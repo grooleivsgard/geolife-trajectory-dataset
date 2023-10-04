@@ -5,8 +5,6 @@ from Database import Database
 import pandas as pd
 import mysql.connector
 from dataset import process_users, preprocess_activities, process_activity, process_trackpoint, read_file_to_list
-import queries
-
 
 def time_elapsed_str(start_time):
     """
@@ -156,10 +154,10 @@ def upload_data():
         data_path = './dataset/dataset/Data'
         labeled_ids = read_file_to_list('./dataset/dataset/labeled_ids.txt')
         database = open_connection()
-        # database.drop(['TrackPoint', 'Activity', 'User'], debug=False)
+        database.drop(['TrackPoint', 'Activity', 'User'], debug=False)
 
-        # create_tables(database, debug=False)
-        # insert_data(database, data_path, labeled_ids, insert_threshold=325 * 10e2)
+        create_tables(database, debug=False)
+        insert_data(database, data_path, labeled_ids, insert_threshold=325 * 10e2)
         connector = DbConnector.DbConnector()
         cursor = connector.get_cursor()
         queries.iterate_results(cursor, 13)
@@ -168,15 +166,16 @@ def upload_data():
 
 
 # Execution
-database = open_connection()
 
+upload_data()
+#database = open_connection()
 # Task 9
-get_top_altitude_gains(database.cursor)
+#get_top_altitude_gains(database.cursor)
 
 # Task 11
-get_invalid_activities(database.cursor)
+#get_invalid_activities(database.cursor)
 
 # Task 12
-get_most_used_transportations(database.cursor)
+#get_most_used_transportations(database.cursor)
 
-database.close_connection()
+#database.close_connection()

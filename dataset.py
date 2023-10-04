@@ -50,7 +50,6 @@ def preprocess_activities(user_row: dict) -> list:
     with os.scandir(user_row['meta']['path'] + "/Trajectory") as activities:
         for activity in activities:
             if activity.is_file():
-                print(activity.name)
                 activity_row = {
                     "id": int(user_row["id"] + activity.name[:-4]),
                     "user_id": user_row["id"],
