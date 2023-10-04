@@ -55,7 +55,7 @@ def preprocess_activities(user_row: dict) -> list:
                     "id": int(user_row["id"] + activity.name[:-4]),
                     "user_id": user_row["id"],
                     "transportation_mode": None,
-                    "meta": {"name": activity.name, "path": activity.path}
+                    "meta": {"path": activity.path}
                 }
                 activity_rows.append(activity_row)
     return activity_rows

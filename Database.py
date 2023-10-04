@@ -53,10 +53,10 @@ class Database:
         :param tables: A list of table names to be dropped.
         :param debug: A flag to print debug information.
         """
-        query = "DROP TABLE IF EXISTS"
+        query = "DROP TABLE IF EXISTS "
+
         for table in tables:
-            query += f" {table},"
-        query = query.rstrip(',')
+            query += f" {table}," if table != tables[-1] else f" {table};"
 
         if debug:
             print(query)
