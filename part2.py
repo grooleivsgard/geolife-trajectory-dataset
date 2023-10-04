@@ -357,44 +357,45 @@ def get_top_altitude_gains(cursor):
 
 # TASK 10
 def get_longest_distance_per_transportation(cursor):
-    # Define the SQL query to fetch required fields
-    query = '''SELECT a.user_id, a.transportation_mode, tp.lat, tp.lon
-                FROM Activity a
-                JOIN TrackPoint tp ON a.id = tp.activity_id;'''
+    query = '''
+            SELECT a.user_id, a.transportation_mode, tp.lat, tp.lon, DATE(a.start_date_time) AS travel_day
+            FROM Activity a
+            JOIN TrackPoint tp ON a.id = tp.activity_id
+            WHERE TIMESTAMPDIFF(DAY, a.start_date_time, a.end_date_time) <= 1
+            ORDER BY a.user_id, a.transportation_mode, tp.date_time;
+        '''
+    data = execute_query(cursor, query)
+    result = result_to_dicts(cursor, data)
 
-    # Read the SQL query into a DataFrame
-    result = execute_query(cursor, query)
+    distances = []
+    for i in range(1, len(result)):
+        if result[i]['user_id'] == result[i - 1]['user_id'] and result[i]['transportation_mode'] == result[i - 1][
+            'transportation_mode'] and result[i]['travel_day'] == result[i - 1]['travel_day']:
+            coord1 = (result[i - 1]['lat'], result[i - 1]['lon'])
+            coord2 = (result[i]['lat'], result[i]['lon'])
+            distance = haversine(coord1, coord2, unit='km')
+            distances.append(
+                (result[i]['user_id'], result[i]['transportation_mode'], distance))
 
-    df = pd.DataFrame(result, columns=['user_id', 'transportation_mode', 'latitude', 'longitude'])
+    # Aggregate distances by user and mode
+    from collections import defaultdict
+    aggregated_distances = defaultdict(float)
+    for user, mode, distance in distances:
+        aggregated_distances[(user, mode)] += distance
 
-    # Sort values by user_id, transportation_mode, date_days and latitude and longitude (assumed to be in that order)
-    df.sort_values(by=['user_id', 'transportation_mode', 'latitude', 'longitude'], inplace=True)
+    # Find max distances by mode
+    max_distances = {}
+    for (user, mode), distance in aggregated_distances.items():
+        if mode not in max_distances or max_distances[mode][1] < distance:
+            max_distances[mode] = (user, distance)
 
-    # Function to calculate total distance for each group
-    def calculate_distance(group):
-        total_distance = 0
-        for i in range(1, len(group)):
-            coord1 = (group.iloc[i - 1]['latitude'], group.iloc[i - 1]['longitude'])
-            coord2 = (group.iloc[i]['latitude'], group.iloc[i]['longitude'])
-            total_distance += haversine(coord1, coord2, unit=Unit.METERS)
-        return total_distance
+    # Format the results
+    output = []
+    for mode, (user, distance) in max_distances.items():
+        line = f"\nTransportation Mode: {mode}, User ID: {user}, Distance: {distance:.2f} km"
+        output.append(line)
 
-    # Group by user_id, transportation_mode, and date_days and apply the distance function
-    df['total_distance'] = df.groupby(['user_id', 'transportation_mode']).apply(calculate_distance).reset_index(
-        level=[0, 1, 2], drop=True)
-
-    # Drop duplicates
-    df.drop_duplicates(subset=['user_id', 'transportation_mode'], inplace=True)
-
-    # For each transportation mode and date, find the user with the maximum total distance
-    result_df = df.loc[df.groupby(['transportation_mode'])['total_distance'].idxmax()]
-
-    # Select required columns and sort
-    result_df = result_df[['user_id', 'transportation_mode', 'total_distance']].sort_values(
-        by=['transportation_mode', 'date_days', 'total_distance'], ascending=[True, True, False])
-
-    # Display the result
-    return print(result_df)
+    return '\n'.join(output)
 
 
 # TASK 11
