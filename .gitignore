@@ -3,4 +3,6 @@
 /geolife_ds
 /__pycache__
 /.idea
+__pycache__
+.idea
 .DS_Store
