@@ -121,6 +121,7 @@ class Part1:
                 f'\rUser {user_row["id"]} processed ({i + 1} / {num_users}), Time elapsed: {time_elapsed_str(start_time)}',
                 end='')
 
+        self.push_buffers_to_db(activity_buffer, trackpoint_buffer, len(activity_buffer), len(trackpoint_buffer))
         print(f'\nInsertion complete - Total time: {time_elapsed_str(start_time)}')
 
     def upload_data(self):
