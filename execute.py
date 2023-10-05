@@ -7,5 +7,5 @@ from part2 import Part2
 #part1.upload_data()
 
 part2 = Part2()
-part2.task_12()
+part2.task_10()
 
