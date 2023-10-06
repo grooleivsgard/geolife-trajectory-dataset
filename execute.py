@@ -1,4 +1,3 @@
-from Database import Database
 from part1 import Part1
 from part2 import Part2
 
@@ -7,5 +6,5 @@ from part2 import Part2
 #part1.upload_data()
 
 part2 = Part2()
-part2.task_10()
+part2.execute_tasks(task_nums=range(1, 13))
 
