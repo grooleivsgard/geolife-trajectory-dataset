@@ -216,7 +216,8 @@ class Part2:
         query = '''SELECT user_id, id AS activity_id, transportation_mode, 
                           TIMESTAMPDIFF(MINUTE, start_date_time, end_date_time) AS duration_in_minutes
                     FROM Activity
-                    WHERE DATEDIFF(end_date_time, start_date_time) = 1;'''
+                    WHERE DATEDIFF(end_date_time, start_date_time) = 1
+                    ORDER BY user_id, duration_in_minutes DESC;'''
         return self.execute_query(query)
 
     def task_7(self):
