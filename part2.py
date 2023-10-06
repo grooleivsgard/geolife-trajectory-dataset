@@ -10,12 +10,28 @@ from Database import Database
 
 
 def print_question(task_num: int, question_text: str):
+    """
+    Prints task introduction.
+    Args:
+        task_num: number of the task
+        question_text: Text to display
+    """
     print(f'Task {task_num}:')
     print(question_text)
     print("Querying... Please wait.", end='')
 
 
 def print_result(result_df: pd.DataFrame or dict[str, list], floatfmt=".0f", filename=None):
+    """
+    Tabulates and prints the result table of a query
+    Args:
+        result_df: result table from query as Dataframe or dictionary of lists
+        floatfmt: decimal precision
+        filename: name of file to write the result table to. Omit to avoid writing to file.
+
+    Returns:
+
+    """
     print('\r', end='')
 
     display = tabulate(result_df, headers='keys', tablefmt='grid', floatfmt=floatfmt, showindex=False)
@@ -48,23 +64,49 @@ class Part2:
         for num in task_nums:
             tasks[num - 1]()
 
-    def execute_query(self, query, params=None):
+    def execute_query(self, query):
+        """
+        Executes a query.
+
+        Args:
+            query: SQL query to be executed.
+        Returns:
+
+        """
         try:
-            self.cursor.execute(query, params)
+            self.cursor.execute(query)
             return self.cursor.fetchall()
         except mysql.connector.Error as err:
             print(f"SQL-error: {err}")
 
     # TASK 1
     def get_user_count(self):
+        """
+        Retrieves the total number of users from the User table in the database.
+
+        :return: int
+            The total count of users.
+        """
         query = "SELECT COUNT(*) AS user_count FROM User;"
         return self.execute_query(query)[0][0]
 
     def get_activity_count(self):
+        """
+        Retrieves the total number of activities from the Activity table in the database.
+
+        :return: int
+            The total count of activities.
+        """
         query = "SELECT COUNT(*) AS activity_count FROM Activity;"
         return self.execute_query(query)[0][0]
 
     def get_tp_count(self):
+        """
+        Retrieves the total number of trackpoints from the TrackPoint table in the database.
+
+        :return: int
+            The total count of trackpoints.
+        """
         query = "SELECT COUNT(*) AS tp_count FROM TrackPoint;"
         return self.execute_query(query)[0][0]
 
@@ -82,6 +124,12 @@ class Part2:
 
     # TASK 2 - OK
     def get_avg_tp(self):
+        """
+        Calculates and retrieves the average number of trackpoints per user from the database.
+
+        :return: float
+            The average number of trackpoints for each user.
+        """
         query = '''SELECT 
                         (CAST(COUNT(TrackPoint.id) AS FLOAT) / COUNT(DISTINCT User.id)) AS avg_trackpoints_per_user
                     FROM 
@@ -93,6 +141,12 @@ class Part2:
         return self.execute_query(query)[0][0]
 
     def get_max_tp(self):
+        """
+        Calculates and retrieves the maximum number of trackpoints associated with a single user from the database.
+
+        :return: int
+            The maximum number of trackpoints for a user.
+        """
         query = '''SELECT MAX(tp_count) AS avg_tp_per_user
                         FROM (
                             SELECT User.id, SUM(tp_count) AS tp_count
@@ -110,6 +164,12 @@ class Part2:
         return self.execute_query(query)[0][0]
 
     def get_min_tp(self):
+        """
+        Calculates and retrieves the minimum number of trackpoints associated with a single user from the database.
+
+        :return: int
+            The minimum number of trackpoints for a user.
+        """
         query = '''SELECT MIN(tp_count) AS avg_tp_per_user
                             FROM (
                                 SELECT User.id, SUM(tp_count) AS tp_count
@@ -139,6 +199,14 @@ class Part2:
 
     # TASK 3 - OK
     def get_top_15_activities(self):
+        """
+        Retrieves the top 15 users with the highest number of activities from the database.
+
+        :return: list[tuple]
+            A list of tuples where each tuple contains:
+            - User ID
+            - Total number of activities associated with that user
+        """
         query = '''SELECT User.id,
                         COUNT(Activity.id) AS number_of_activities
                     FROM User
@@ -157,6 +225,13 @@ class Part2:
 
     # TASK 4 - OK
     def get_transportation_by_bus(self):
+        """
+        Retrieves a list of unique user IDs who have taken a bus as a mode of transportation.
+
+        :return: list[tuple]
+            A list of tuples where each tuple contains:
+            - User ID who has taken a bus at least once.
+        """
         query = ''' SELECT DISTINCT user_id
                     FROM Activity
                     WHERE transportation_mode = 'bus';'''
@@ -170,6 +245,14 @@ class Part2:
 
     # TASK 5 - OK
     def get_distinct_transportation_modes(self):
+        """
+        Retrieves the top 10 users based on the number of distinct transportation modes they have used.
+
+        :return: list[tuple]
+            A list of tuples where each tuple contains:
+            - User ID
+            - Count of distinct transportation modes used by the user.
+        """
         query = '''SELECT user_id, COUNT(DISTINCT transportation_mode) AS transportation_modes
                     FROM Activity
                     GROUP BY user_id
@@ -186,7 +269,18 @@ class Part2:
 
     # TASK 6 - OK
     def get_duplicate_activities(self):
-        # Activity ID is primary key, so it cannot be duplicate. We instead compare all other attributes.
+        """
+        Retrieves activities that have duplicate entries based on their attributes, excluding the primary key.
+        Activity ID is primary key, so it cannot be duplicate. We instead compare all other attributes.
+
+        :return: list[tuple]
+            A list of tuples where each tuple contains:
+            - User ID
+            - Transportation mode
+            - Start date and time of the activity
+            - End date and time of the activity
+            - Count of duplicate entries for the activity.
+        """
         query = '''SELECT user_id, transportation_mode, start_date_time, end_date_time, 
                           COUNT(*) AS duplicates
                    FROM Activity
@@ -205,6 +299,12 @@ class Part2:
 
     # TASK 7a - OK
     def get_count_multiple_day_activities(self):
+        """
+        Retrieves the count of users who have activities spanning over two days.
+
+        :return: int
+            The number of users with activities that span over two consecutive days.
+        """
         query = '''SELECT COUNT(DISTINCT user_id) AS users_with_multiple_day_activities
                     FROM Activity
                     WHERE DATEDIFF(end_date_time, start_date_time) = 1;'''
@@ -212,7 +312,19 @@ class Part2:
 
     # TASK 7b - OK
     def get_list_multiple_day_activities(self):
-        # Retrieves all activities, including unlabeled transportation modes, that spans over one day
+        """
+        Retrieves a list of activities that span over two consecutive days, including those with unlabeled
+        transportation modes.
+
+        :return: list of tuples
+            Each tuple contains:
+            - user_id: The ID of the user.
+            - activity_id: The ID of the activity.
+            - transportation_mode: The mode of transportation for the activity.
+            - duration_in_minutes: The total duration of the activity in minutes.
+
+        The results are ordered by user_id and then by descending duration.
+        """
         query = '''SELECT user_id, id AS activity_id, transportation_mode, 
                           TIMESTAMPDIFF(MINUTE, start_date_time, end_date_time) AS duration_in_minutes
                     FROM Activity
@@ -242,6 +354,24 @@ class Part2:
 
     # TASK 8
     def get_users_in_proximity(self):
+        """
+        Determines the number of users who have been in proximity to another user based on their activities.
+
+        The function works as follows:\n
+        1. Filters activities based on their start and end times to identify activities that overlap in time.\n
+        2. Fetches all trackpoints associated with the filtered activities.\n
+        3. Uses an R-tree spatial index to efficiently identify trackpoints that are spatially close.\n
+        4. Calculates the distance between two points using the Euclidean combination of the
+           Haversine distance (for latitude and longitude) and the altitude difference.
+
+        :return: int
+            The number of unique users who have been in proximity to another user.
+
+        Note: 
+        - The function uses the Haversine formula to calculate the distance between two points on the Earth's surface.
+        - The altitude difference is converted from feet to meters before calculating the Euclidean distance.
+        - The total distance is the Euclidean combination of both.
+        """
         start_time = time.time()
 
         # 1. FILTER BY TIME
@@ -288,9 +418,9 @@ class Part2:
                 for nearby_id in nearby:
                     coord_dist = haversine(tp1_list[nearby_id][:2], (lat, lon), unit=Unit.METERS)
                     altitude_dist = np.abs(altitude - tp1_list[nearby_id][2]) * 0.3048
-                    euclidean_distance = np.sqrt(coord_dist**2 + altitude_dist**2)
+                    euclidean_combination = np.sqrt(coord_dist**2 + altitude_dist**2)
 
-                    if euclidean_distance <= 50:
+                    if euclidean_combination <= 50:
                         return True
             return False
 
@@ -325,8 +455,8 @@ class Part2:
             The result is then converted from feet to meters and the top 15 users with the highest altitude gains are
             returned.
 
-            :return: A list of the top 15 users with their respective total altitude gains in meters, ordered in descending
-                     order of altitude gained.
+            :return: A list of the top 15 users with their respective total altitude gains in meters, ordered in
+                     descending order of altitude gained.
             """
         query = '''
         WITH CurrentAndPreviousAltitudes AS (
@@ -421,10 +551,28 @@ class Part2:
                                      "day for each transportation mode.")
         result = pd.DataFrame(self.get_longest_distance_per_transportation(),
                               columns=['User ID', 'Transportation Mode', 'Distance in km'])
-        print_result(result, filename=f"task_{task_num}")
+        print_result(result, filename=f"task_{task_num}", floatfmt=".2f")
 
     # TASK 11
     def get_invalid_activities(self):
+        """
+        Identifies users and the count of their activities that have trackpoints with time differences exceeding
+        5 minutes.
+
+        The function works as follows:
+        1. Calculates the time difference between consecutive trackpoints for each activity.
+        2. Identifies activities where any time difference between trackpoints exceeds 5 minutes.
+        3. Counts the number of such invalid activities for each user.
+
+        :return: list of tuples
+            Each tuple contains:
+            - user_id: The ID of the user.
+            - invalid_activity_count: The count of invalid activities for the user.
+
+        Note:
+        - An activity is considered invalid if there's a gap of 5 minutes or more between any two consecutive
+            trackpoints.
+        """
         query = """
         WITH TrackpointDifferences AS (
         SELECT TrackPoint.activity_id,
@@ -461,6 +609,24 @@ class Part2:
 
     # TASK 12
     def get_most_used_transportations(self):
+        """
+        Retrieves the most frequently used transportation mode for each user.
+
+        The function works as follows:
+        1. Calculates the count of each transportation mode used by each user.
+        2. Ranks the transportation modes for each user based on their usage frequency.
+        3. Selects the top-ranked transportation mode for each user.
+
+        :return: list of tuples
+            Each tuple contains:
+            - user_id: The ID of the user.
+            - most_used_transportation_mode: The most frequently used transportation mode by the user.
+            - amount: The count of times the user has used this transportation mode.
+
+        Note:
+        - Only users with labeled data and activities with specified transportation modes are considered.
+        - In case of a tie in the count, the transportation mode is selected based on alphabetical order.
+        """
         query = '''
         WITH UserTransportModeCounts AS (
         SELECT User.id as user_id, Activity.transportation_mode AS transportation_mode, COUNT(*) AS amount
