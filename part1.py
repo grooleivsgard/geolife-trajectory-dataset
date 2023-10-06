@@ -1,6 +1,5 @@
 import time
 import copy
-import pandas as pd
 from Database import Database
 from data_processing import (process_users, preprocess_activities, process_activity, process_trackpoint,
                              read_file_to_list)

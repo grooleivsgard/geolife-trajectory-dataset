@@ -1,4 +1,3 @@
-from tabulate import tabulate
 import pandas as pd
 import mysql.connector as mysql
 import os
@@ -81,7 +80,9 @@ class Database:
         query += f'\nPRIMARY KEY ({primary_key})'
 
         if foreign:
-            query += f',\nFOREIGN KEY ({foreign["key"]}) REFERENCES {foreign["references"]}'
+            query += (f',\nFOREIGN KEY ({foreign["key"]}) REFERENCES {foreign["references"]}'
+                      f'\nON DELETE CASCADE '
+                      f'\nON UPDATE CASCADE')
 
         query += "\n);"
 
