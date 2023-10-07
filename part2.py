@@ -64,17 +64,18 @@ class Part2:
         for num in task_nums:
             tasks[num - 1]()
 
-    def execute_query(self, query):
+    def execute_query(self, query, params=None):
         """
         Executes a query.
 
         Args:
+            params: Parameters for query
             query: SQL query to be executed.
         Returns:
 
         """
         try:
-            self.cursor.execute(query)
+            self.cursor.execute(query, params)
             return self.cursor.fetchall()
         except mysql.connector.Error as err:
             print(f"SQL-error: {err}")
